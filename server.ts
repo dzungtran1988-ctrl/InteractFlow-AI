@@ -2,10 +2,7 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 import AdmZip from "adm-zip";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 
 dotenv.config();
 
@@ -715,14 +712,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     }
   });
 
-// Set up Vite or static asset serving when NOT running on Vercel
+// Set up Vite or static asset serving on development (when NOT running on Vercel)
 async function initServerAndListen() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.error("[initServerAndListen] Failed to dynamically load and set up Vite:", e);
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

@@ -13,10 +13,95 @@ dotenv.config();
 async function extractTextFromPdf(base64Data: string): Promise<string> {
   try {
     const buffer = Buffer.from(base64Data, "base64");
-    const parsed = await pdf(buffer);
-    return parsed.text || "";
+    
+    // Wrap pdf-parse call in a Promise to enable racing with a timeout
+    const parsePromise = new Promise<string>(async (resolve, reject) => {
+      try {
+        const parsed = await pdf(buffer);
+        resolve(parsed.text || "");
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    const timeoutPromise = new Promise<string>((resolve) => {
+      setTimeout(() => {
+        resolve("__TIMEOUT__");
+      }, 4000);
+    });
+
+    const result = await Promise.race([parsePromise, timeoutPromise]);
+    if (result === "__TIMEOUT__") {
+      console.warn("[extractTextFromPdf] pdf-parse call timed out. Using pure binary fallback...");
+      return extractPlainTextsFromPdfBinary(buffer);
+    }
+    return result;
   } catch (err) {
-    console.error("Error parsing PDF via pdf-parse:", err);
+    console.error("[extractTextFromPdf] Error parsing PDF via pdf-parse:", err);
+    try {
+      const buffer = Buffer.from(base64Data, "base64");
+      return extractPlainTextsFromPdfBinary(buffer);
+    } catch (fallbackErr) {
+      return "";
+    }
+  }
+}
+
+function extractPlainTextsFromPdfBinary(buffer: Buffer): string {
+  try {
+    const rawString = buffer.toString("binary");
+    
+    // Simple regex to extract strings in PDF parentheses (e.g., (some text))
+    const regex = /\(([^)]+)\)/g;
+    const textSegments: string[] = [];
+    let match;
+    let count = 0;
+    
+    while ((match = regex.exec(rawString)) !== null && count < 8000) {
+      const segment = match[1].trim();
+      // Skip PDF meta commands, font dictionaries, or purely binary noise
+      if (
+        segment.length > 2 &&
+        !segment.startsWith("/") &&
+        !segment.includes("\\") &&
+        !segment.includes("%%") &&
+        !segment.includes("obj") &&
+        !/[^\x20-\x7E\xA0-\xFF]/.test(segment)
+      ) {
+        textSegments.push(segment);
+      }
+      count++;
+    }
+
+    if (textSegments.length > 15) {
+      console.log(`[extractPlainTextsFromPdfBinary] Extracted ${textSegments.length} segments via parentheses.`);
+      return textSegments.join(" ");
+    }
+
+    // Broad printable character-scanning fallback
+    const printableMatches = rawString.match(/[\x20-\x7E\xA0-\xFF]{5,}/g);
+    if (printableMatches) {
+      const filtered = printableMatches.filter(s => {
+        const lower = s.toLowerCase();
+        return !lower.startsWith("xml") &&
+               !lower.includes("adobe") &&
+               !lower.includes("uuid") &&
+               !lower.includes("pdf") &&
+               !lower.includes("font") &&
+               !lower.includes("obj") &&
+               !lower.includes("endobj") &&
+               !lower.includes("stream") &&
+               !lower.includes("endstream");
+      });
+      if (filtered.length > 10) {
+        console.log(`[extractPlainTextsFromPdfBinary] Extracted ${filtered.length} printable broad lines.`);
+        return filtered.join(" ");
+      }
+    }
+
+    return "";
+  } catch (e) {
+    console.error("Error in extractPlainTextsFromPdfBinary:", e);
     return "";
   }
 }
@@ -244,12 +329,24 @@ async function startServer() {
 
       if (isTextExtractable) {
         let extractedText = await extractTextFromFile(file.data, file.mimeType);
-        if (extractedText.length > 35000) {
-          extractedText = extractedText.substring(0, 35000) + "\n\n...(Nội dung bị lược bớt để phù hợp với định mức xử lý dữ liệu)...";
+        
+        // If extracted text is empty or too short (< 100 chars), fallback to native OCR inlineData
+        if (extractedText && extractedText.trim().length > 100) {
+          if (extractedText.length > 35000) {
+            extractedText = extractedText.substring(0, 35000) + "\n\n...(Nội dung bị lược bớt để phù hợp với định mức xử lý dữ liệu)...";
+          }
+          contents.push({
+            text: `NỘI DUNG TÀI LIỆU ĐÍNH KÈM (ĐÃ TRÍCH XUẤT THÀNH VĂN BẢN):\n\n${extractedText}`
+          });
+        } else {
+          console.log("[api/analyze-metadata] Extracted text is empty or too short. Falling back to native inlineData for OCR...");
+          contents.push({
+            inlineData: {
+              mimeType: file.mimeType,
+              data: file.data
+            }
+          });
         }
-        contents.push({
-          text: `NỘI DUNG TÀI LIỆU ĐÍNH KÈM (ĐÃ TRÍCH XUẤT THÀNH VĂN BẢN):\n\n${extractedText || "(Tài liệu trống hoặc không thể trích xuất)"}`
-        });
       } else {
         contents.push({
           inlineData: {
@@ -397,12 +494,23 @@ Hướng dẫn phối cảnh mỹ thuật:
 
         if (isTextExtractable) {
           let extractedText = await extractTextFromFile(file.data, file.mimeType);
-          if (extractedText.length > 35000) {
-            extractedText = extractedText.substring(0, 35000) + "\n\n...(Nội dung bị lược bớt để phù hợp với định mức xử lý dữ liệu)...";
+          
+          if (extractedText && extractedText.trim().length > 100) {
+            if (extractedText.length > 35000) {
+              extractedText = extractedText.substring(0, 35000) + "\n\n...(Nội dung bị lược bớt để phù hợp với định mức xử lý dữ liệu)...";
+            }
+            contents.push({
+              text: `NỘI DUNG TÀI LIỆU ĐÍNH KÈM (ĐÃ TRÍCH XUẤT THÀNH VĂN BẢN):\n\n${extractedText}`
+            });
+          } else {
+            console.log("[api/generate-lesson] Extracted text is empty or too short. Falling back to native inlineData for OCR...");
+            contents.push({
+              inlineData: {
+                mimeType: file.mimeType,
+                data: file.data
+              }
+            });
           }
-          contents.push({
-            text: `NỘI DUNG TÀI LIỆU ĐÍNH KÈM (ĐÃ TRÍCH XUẤT THÀNH VĂN BẢN):\n\n${extractedText || "(Tài liệu trống hoặc không thể trích xuất)"}`
-          });
         } else {
           contents.push({
             inlineData: {

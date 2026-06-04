@@ -29,7 +29,6 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import JSZip from 'jszip';
 import { StructuredLesson, QuizQuestion, LocalCompletionRecord } from './types';
 import StatsDashboardModal from './components/StatsDashboardModal';
 import { PRESET_SAMPLES, PresetSample } from './constants/presets';
@@ -498,211 +497,26 @@ export default function App() {
     }
   };
 
-  const clientExtractTextFromOffice = async (file: File): Promise<string> => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      let text = "";
 
-      const nameLower = file.name.toLowerCase();
-      const isWord = nameLower.endsWith(".docx") || nameLower.endsWith(".doc") || file.type.includes("wordprocessingml") || file.type.includes("msword");
-      const isPpt = nameLower.endsWith(".pptx") || nameLower.endsWith(".ppt") || file.type.includes("presentationml") || file.type.includes("ms-powerpoint") || file.type.includes("officedocument.presentationml");
-
-      const decodeXml = (str: string) => {
-        return str
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/&apos;/g, "'");
-      };
-
-      if (isWord) {
-        const docFiles = zip.file(/document\.xml$/i);
-        if (docFiles.length > 0) {
-          const content = await docFiles[0].async("text");
-          const matches = content.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
-          if (matches) {
-            text = matches
-              .map(m => {
-                const inner = m.substring(m.indexOf(">") + 1, m.lastIndexOf("<"));
-                return decodeXml(inner);
-              })
-              .join(" ");
-          }
-        }
-      } else if (isPpt) {
-        const files = zip.file(/slides\/slide\d+\.xml$/i);
-        const sortedFiles = files.sort((a, b) => {
-          const numA = parseInt(a.name.match(/\d+/)?.[0] || "0", 10);
-          const numB = parseInt(b.name.match(/\d+/)?.[0] || "0", 10);
-          return numA - numB;
-        });
-
-        const slideTexts: string[] = [];
-        for (const slideFile of sortedFiles) {
-          const content = await slideFile.async("text");
-          const matches = content.match(/<a:t[^>]*>(.*?)<\/a:t>/g);
-          if (matches) {
-            const slideText = matches
-              .map(m => {
-                const inner = m.substring(m.indexOf(">") + 1, m.lastIndexOf("<"));
-                return decodeXml(inner);
-              })
-              .join(" ");
-            const slideNum = slideFile.name.match(/\d+/)?.[0] || "";
-            slideTexts.push(`[Slide ${slideNum}] ${slideText}`);
-          }
-        }
-        text = slideTexts.join("\n\n");
-      }
-
-      return text.trim();
-    } catch (e) {
-      console.error("Client office file text extraction error:", e);
-      return "";
-    }
-  };
-
-  const clientExtractTextFromPdfBinary = async (file: File): Promise<string> => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let rawString = "";
-      const chunkSize = 65536;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(i, i + chunkSize);
-        rawString += String.fromCharCode.apply(null, Array.from(chunk));
-      }
-
-      // Decode octal escapes and other backslashes first to preserve UTF-8 bytes
-      const decodePdfStringClient = (binaryStr: string): string => {
-        try {
-          return binaryStr.replace(/\\([0-7]{1,3})/g, (match, octal) => {
-            return String.fromCharCode(parseInt(octal, 8));
-          }).replace(/\\([nrtbf()])/g, (match, char) => {
-            const map: Record<string, string> = { n: "\n", r: "\r", t: "\t", b: "\b", f: "\f" };
-            return map[char] || char;
-          }).replace(/\\(.)/g, "$1");
-        } catch {
-          return binaryStr;
-        }
-      };
-
-      const decodedString = decodePdfStringClient(rawString);
-
-      const regex = /\(([^)]+)\)/g;
-      const textSegments: string[] = [];
-      let match;
-      let count = 0;
-      
-      while ((match = regex.exec(decodedString)) !== null && count < 8000) {
-        const segment = match[1].trim();
-        if (
-          segment.length > 2 &&
-          !segment.startsWith("/") &&
-          !segment.includes("\\") &&
-          !segment.includes("%%") &&
-          !segment.includes("obj") &&
-          !/[^\x20-\x7E\x80-\xFF]/.test(segment)
-        ) {
-          textSegments.push(segment);
-        }
-        count++;
-      }
-
-      const decodeBinaryStringToUtf8 = (str: string): string => {
-        try {
-          const u8 = new Uint8Array(str.length);
-          for (let i = 0; i < str.length; i++) {
-            u8[i] = str.charCodeAt(i) & 0xFF;
-          }
-          return new TextDecoder("utf-8").decode(u8);
-        } catch {
-          return str;
-        }
-      };
-
-      if (textSegments.length > 15) {
-        return decodeBinaryStringToUtf8(textSegments.join(" "));
-      }
-
-      const printableMatches = decodedString.match(/[\x20-\x7E\x80-\xFF]{5,}/g);
-      if (printableMatches) {
-        const filtered = printableMatches.filter(s => {
-          const lower = s.toLowerCase();
-          return !lower.startsWith("xml") &&
-                 !lower.includes("adobe") &&
-                 !lower.includes("uuid") &&
-                 !lower.includes("pdf") &&
-                 !lower.includes("font") &&
-                 !lower.includes("obj") &&
-                 !lower.includes("endobj") &&
-                 !lower.includes("stream") &&
-                 !lower.includes("endstream");
-        });
-        if (filtered.length > 10) {
-          return decodeBinaryStringToUtf8(filtered.join(" "));
-        }
-      }
-      return "";
-    } catch (e) {
-      console.error("Client PDF text extraction error:", e);
-      return "";
-    }
-  };
 
   const processFile = async (file: File) => {
     setIsFileLoading(true);
     setGenerationError(null);
 
-    const mime = file.type || getMimeType(file.name);
-    const nameLower = file.name.toLowerCase();
-    const isText = nameLower.endsWith('.txt') || nameLower.endsWith('.md') || nameLower.endsWith('.json');
-    const isOffice = nameLower.endsWith('.docx') || nameLower.endsWith('.doc') || nameLower.endsWith('.pptx') || nameLower.endsWith('.ppt') || mime.includes("wordprocessingml") || mime.includes("presentationml") || mime.includes("ms-powerpoint") || mime.includes("msword") || mime.includes("officedocument.presentationml");
-    const isPdf = mime.includes("pdf");
-
-    // Hybrid Client-side extraction to drastically reduce network payload limits (eg, 4.5MB Vercel / Nginx limit)
-    let parsedText = "";
-    if (isOffice) {
-      parsedText = await clientExtractTextFromOffice(file);
-    } else if (isPdf) {
-      parsedText = await clientExtractTextFromPdfBinary(file);
-    }
-
     // Limit direct upload payload base64 size to prevent Vercel 4.5MB crashes
     const MAX_UPLOAD_SIZE = 3.0 * 1024 * 1024; // 3.0 MB
 
-    if (parsedText && (parsedText.trim().length > 10 || file.size > MAX_UPLOAD_SIZE)) {
-      const utf8ToBase64 = (str: string): string => {
-        return btoa(unescape(encodeURIComponent(str)));
-      };
-      
-      const safeText = parsedText.trim() || `[Tài liệu ${file.name} rỗng hoặc không thể rút trích chữ]`;
-      const base64Text = utf8ToBase64(safeText);
-      
-      setUploadedFile({
-        name: file.name,
-        size: file.size,
-        mimeType: "text/plain", // Keep text/plain so backend decodes as plain text
-        data: base64Text
-      });
-
-      setContent(""); // Clear manually typed content, AI will stick to uploaded documents
-      setIsFileLoading(false);
-      fetchAndConfigureMetadata("text/plain", base64Text, file.name);
-      return;
-    }
-
     if (file.size > MAX_UPLOAD_SIZE) {
       setGenerationError(
-        `Kích thước tệp tin (${(file.size / (1024 * 1024)).toFixed(1)}MB) quá lớn so với giới hạn tải lên trực tiếp của hạ tầng Vercel (tối đa 4.5MB tải trọng base64, tức tối đa 3.0MB tệp thô). ` +
-        `Bạn có thể: 1) Giảm dung lượng ảnh trong tệp Slide Slide PPT của bạn và xuất lại; 2) Chuyển đổi nó sang tệp dạng PDF dung lượng nhỏ; hoặc 3) Sao chép trực tiếp nội dung văn bản cốt lõi rồi dán trực tiếp vào khung nhập liệu bên dưới.`
+        `Kích thước tệp tin (${(file.size / (1024 * 1024)).toFixed(1)}MB) quá lớn so với giới hạn tải lên trực tiếp của hạ tầng (tối đa 3.0MB). ` +
+        `Bạn có thể: 1) Giảm dung lượng tệp; 2) Chia nhỏ tệp; hoặc 3) Sao chép văn bản và dán trực tiếp vào khung nhập liệu.`
       );
       setIsFileLoading(false);
       return;
     }
 
+    const mime = file.type || getMimeType(file.name);
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
@@ -710,7 +524,7 @@ export default function App() {
         setIsFileLoading(false);
         return;
       }
-      
+
       const base64Data = result.split(',')[1];
       
       setUploadedFile({
@@ -720,23 +534,9 @@ export default function App() {
         data: base64Data
       });
 
-      // Instantly autofill if it is a text-based syllabus
-      if (isText) {
-        const textDecoder = new FileReader();
-        textDecoder.onload = (textEvent) => {
-          const rawText = textEvent.target?.result as string;
-          setContent(rawText);
-        };
-        textDecoder.readAsText(file);
-      } else {
-        // If it's a presentation or PDF, clear current manual content to let AI use the doc, 
-        // or guide the user that they can leave it blank
-        setContent("");
-      }
-
+      // Clear manually typed content, AI will stick to uploaded documents
+      setContent("");
       setIsFileLoading(false);
-
-      // Automatically trigger advanced AI metadata extraction to configure General Information settings module!
       fetchAndConfigureMetadata(mime, base64Data, file.name);
     };
 
@@ -1183,29 +983,44 @@ export default function App() {
         );
       }
 
-      let gridCols = "grid-cols-1 md:grid-cols-3";
-      if (points.length === 2) gridCols = "grid-cols-1 md:grid-cols-2";
-      if (points.length >= 4) gridCols = "grid-cols-1 md:grid-cols-2 lg:grid-cols-4";
-
       return (
-        <section className={`core-slide-card-grid grid ${gridCols} gap-4 my-2`}>
-          {points.map((pt, idx) => (
-            <article key={idx} className={`core-slide-point p-4 md:p-4.5 rounded-2xl border flex flex-col justify-start gap-2.5 transition-all hover:scale-[1.01] hover:shadow-md duration-300 ${themeClasses.pointCard}`}>
-              <div className="flex items-center gap-1.5">
-                <span className={`point-index w-6.5 h-6.5 rounded-lg flex items-center justify-center text-[10px] font-black shadow ${themeClasses.pointIndex}`}>
-                  {String(idx + 1).padStart(2, '0')}
-                </span>
-                {pt.title && (
-                  <strong className={`font-black text-xs sm:text-[13px] tracking-tight block ${themeClasses.textAccent}`}>
-                    {pt.title}
-                  </strong>
-                )}
-              </div>
-              <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-650' : 'text-slate-300'}`}>
-                {pt.body}
-              </span>
-            </article>
-          ))}
+        <section className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 my-3 auto-rows-min">
+          {points.map((pt, idx) => {
+            const len = points.length;
+            let colSpan = "md:col-span-4";
+            if (len === 1) colSpan = "md:col-span-12";
+            else if (len === 2) colSpan = "md:col-span-6 lg:col-span-6";
+            else if (len === 3) {
+              if (idx === 0) colSpan = "md:col-span-12 lg:col-span-12 border-b-4";
+              else colSpan = "md:col-span-6 lg:col-span-6";
+            }
+            else if (len === 4) colSpan = "md:col-span-6 lg:col-span-6";
+            else if (len === 5) {
+              if (idx < 2) colSpan = "md:col-span-6 lg:col-span-6";
+              else colSpan = "md:col-span-4 lg:col-span-4";
+            }
+
+            return (
+              <article key={idx} className={`core-slide-point ${colSpan} p-4 md:p-5 rounded-3xl border flex flex-col justify-start gap-3 transition-all hover:-translate-y-1 hover:shadow-lg duration-300 shadow-sm relative overflow-hidden group ${themeClasses.pointCard}`}>
+                <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br ${slideTheme === 'light' ? 'from-white/40 to-transparent' : 'from-white/5 to-transparent'} pointer-events-none`} />
+                <div className="flex flex-col gap-2 relative z-10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`point-index w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shadow-sm ${themeClasses.pointIndex}`}>
+                      {String(idx + 1).padStart(2, '0')}
+                    </span>
+                    {pt.title && (
+                      <strong className={`font-black text-xs sm:text-[14px] tracking-tight block ${themeClasses.textAccent}`}>
+                        {pt.title}
+                      </strong>
+                    )}
+                  </div>
+                  <span className={`text-[12px] sm:text-[13px] font-medium leading-relaxed block ${slideTheme === 'light' ? 'text-slate-650' : 'text-slate-300'}`}>
+                    {pt.body}
+                  </span>
+                </div>
+              </article>
+            );
+          })}
         </section>
       );
     };
@@ -2580,9 +2395,12 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
     .core-slide-card-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: .8rem;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 1rem;
     }
+    .core-bento-12 { grid-column: span 12 / span 12; }
+    .core-bento-6 { grid-column: span 6 / span 6; }
+    .core-bento-4 { grid-column: span 4 / span 4; }
 
     .core-slide-comparison {
       display: grid;
@@ -2604,9 +2422,10 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     }
 
     @media (max-width: 768px) {
-      .core-slide-comparison, .core-slide-twocolumn {
+      .core-slide-comparison, .core-slide-twocolumn, .core-slide-card-grid {
         grid-template-columns: 1fr;
       }
+      .core-bento-12, .core-bento-6, .core-bento-4 { grid-column: span 1 / span 1; }
       .core-slide-timeline {
         flex-direction: column;
       }
@@ -4386,7 +4205,15 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
         let html = '<section class="core-slide-card-grid my-4">';
         points.forEach((pt, idx) => {
-          html += '<article class="core-slide-point flex flex-col justify-start gap-2 max-w-none shadow-sm">' +
+          const len = points.length;
+          let spanClass = "core-bento-4";
+          if (len === 1) spanClass = "core-bento-12";
+          else if (len === 2) spanClass = "core-bento-6";
+          else if (len === 3) spanClass = idx === 0 ? "core-bento-12" : "core-bento-6";
+          else if (len === 4) spanClass = "core-bento-6";
+          else if (len === 5) spanClass = idx < 2 ? "core-bento-6" : "core-bento-4";
+
+          html += '<article class="core-slide-point ' + spanClass + ' flex flex-col justify-start gap-2 max-w-none shadow-sm">' +
             '<span class="point-index" style="' + pointIndexStyle + '">' + String(idx + 1).padStart(2, '0') + '</span>' +
             '<strong style="' + pTitleStyle + '">' + pt.title + '</strong>' +
             '<span>' + pt.body + '</span>' +

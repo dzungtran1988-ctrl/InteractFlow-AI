@@ -1,0 +1,8 @@
+{
+  "name": "InteractFlow AI v2.0",
+  "description": "Transform lecture content into interactive HTML lessons with custom quizzes, case studies, and activities for university students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

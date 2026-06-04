@@ -245,13 +245,12 @@ function extractTextFromOffice(base64Data: string, mimeType: string): string {
   }
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+const PORT = 3000;
 
-  // Serve static assets or use body-parser with elevated limits
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Serve static assets or use body-parser with elevated limits
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   // Helper to dynamically get Gemini client either from headers or env
   const getAiClient = (req: express.Request) => {
@@ -744,7 +743,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     }
   });
 
-  // Vite middleware for development
+// Set up Vite or static asset serving when NOT running on Vercel
+async function initServerAndListen() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -759,11 +759,16 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  // Only listen on 3000 if not on Vercel (Cloud Run/Workspace/local needs this)
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-startServer().catch((err) => {
-  console.error("Failed to start fullstack server:", err);
+initServerAndListen().catch((err) => {
+  console.error("Failed to initialize server/Vite middleware:", err);
 });
+
+export default app;

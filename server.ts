@@ -278,7 +278,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
     if (customModel && customModel.trim()) {
       modelsToTry.push(customModel.trim());
     }
-    const standardFallbackModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest"];
+    const standardFallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
     for (const m of standardFallbackModels) {
       if (!modelsToTry.includes(m)) {
         modelsToTry.push(m);

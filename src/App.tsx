@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import JSZip from 'jszip';
 import { StructuredLesson, QuizQuestion, LocalCompletionRecord } from './types';
 import StatsDashboardModal from './components/StatsDashboardModal';
 import { PRESET_SAMPLES, PresetSample } from './constants/presets';
@@ -106,7 +107,7 @@ export default function App() {
 
   // Selected Gemini model from user (persists in localStorage)
   const [selectedModel, setSelectedModel] = useState<string>(() => {
-    return localStorage.getItem("GEMINI_SELECTED_MODEL") || "gemini-3.5-flash";
+    return localStorage.getItem("GEMINI_SELECTED_MODEL") || "gemini-2.5-flash";
   });
 
   useEffect(() => {
@@ -265,8 +266,23 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.error || "Không thể phân tích tự động");
+        let errMsg = "Không thể phân tích tự động";
+        try {
+          const text = await response.text();
+          try {
+            const errJson = JSON.parse(text);
+            errMsg = errJson.error || errMsg;
+          } catch {
+            if (response.status === 413 || text.toLowerCase().includes("too large") || text.toLowerCase().includes("payload too large")) {
+              errMsg = "Dung lượng tệp quá lớn để gửi qua máy chủ trung gian (Vercel giới hạn tối đa 4.5MB). Vui lòng thử tệp nhỏ hơn hoặc dán trực tiếp nội dung bài học.";
+            } else {
+              errMsg = `${response.status} - ${text.substring(0, 100)}`;
+            }
+          }
+        } catch {
+          errMsg = `Lỗi hệ thống (${response.status})`;
+        }
+        throw new Error(errMsg);
       }
 
       const meta = await response.json();
@@ -306,13 +322,184 @@ export default function App() {
     }
   };
 
-  const processFile = (file: File) => {
+  const clientExtractTextFromOffice = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      let text = "";
+
+      const nameLower = file.name.toLowerCase();
+      const isWord = nameLower.endsWith(".docx") || nameLower.endsWith(".doc") || file.type.includes("wordprocessingml") || file.type.includes("msword");
+      const isPpt = nameLower.endsWith(".pptx") || nameLower.endsWith(".ppt") || file.type.includes("presentationml") || file.type.includes("ms-powerpoint") || file.type.includes("officedocument.presentationml");
+
+      const decodeXml = (str: string) => {
+        return str
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'");
+      };
+
+      if (isWord) {
+        const docFiles = zip.file(/document\.xml$/i);
+        if (docFiles.length > 0) {
+          const content = await docFiles[0].async("text");
+          const matches = content.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
+          if (matches) {
+            text = matches
+              .map(m => {
+                const inner = m.substring(m.indexOf(">") + 1, m.lastIndexOf("<"));
+                return decodeXml(inner);
+              })
+              .join(" ");
+          }
+        }
+      } else if (isPpt) {
+        const files = zip.file(/slides\/slide\d+\.xml$/i);
+        const sortedFiles = files.sort((a, b) => {
+          const numA = parseInt(a.name.match(/\d+/)?.[0] || "0", 10);
+          const numB = parseInt(b.name.match(/\d+/)?.[0] || "0", 10);
+          return numA - numB;
+        });
+
+        const slideTexts: string[] = [];
+        for (const slideFile of sortedFiles) {
+          const content = await slideFile.async("text");
+          const matches = content.match(/<a:t[^>]*>(.*?)<\/a:t>/g);
+          if (matches) {
+            const slideText = matches
+              .map(m => {
+                const inner = m.substring(m.indexOf(">") + 1, m.lastIndexOf("<"));
+                return decodeXml(inner);
+              })
+              .join(" ");
+            const slideNum = slideFile.name.match(/\d+/)?.[0] || "";
+            slideTexts.push(`[Slide ${slideNum}] ${slideText}`);
+          }
+        }
+        text = slideTexts.join("\n\n");
+      }
+
+      return text.trim();
+    } catch (e) {
+      console.error("Client office file text extraction error:", e);
+      return "";
+    }
+  };
+
+  const clientExtractTextFromPdfBinary = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let rawString = "";
+      const chunkSize = 65536;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        rawString += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+
+      const regex = /\(([^)]+)\)/g;
+      const textSegments: string[] = [];
+      let match;
+      let count = 0;
+      
+      while ((match = regex.exec(rawString)) !== null && count < 8000) {
+        const segment = match[1].trim();
+        if (
+          segment.length > 2 &&
+          !segment.startsWith("/") &&
+          !segment.includes("\\") &&
+          !segment.includes("%%") &&
+          !segment.includes("obj") &&
+          !/[^\x20-\x7E\xA0-\xFF]/.test(segment)
+        ) {
+          textSegments.push(segment);
+        }
+        count++;
+      }
+
+      if (textSegments.length > 15) {
+        return textSegments.join(" ");
+      }
+
+      const printableMatches = rawString.match(/[\x20-\x7E\xA0-\xFF]{5,}/g);
+      if (printableMatches) {
+        const filtered = printableMatches.filter(s => {
+          const lower = s.toLowerCase();
+          return !lower.startsWith("xml") &&
+                 !lower.includes("adobe") &&
+                 !lower.includes("uuid") &&
+                 !lower.includes("pdf") &&
+                 !lower.includes("font") &&
+                 !lower.includes("obj") &&
+                 !lower.includes("endobj") &&
+                 !lower.includes("stream") &&
+                 !lower.includes("endstream");
+        });
+        if (filtered.length > 10) {
+          return filtered.join(" ");
+        }
+      }
+      return "";
+    } catch (e) {
+      console.error("Client PDF text extraction error:", e);
+      return "";
+    }
+  };
+
+  const processFile = async (file: File) => {
     setIsFileLoading(true);
     setGenerationError(null);
 
+    const mime = file.type || getMimeType(file.name);
+    const nameLower = file.name.toLowerCase();
+    const isText = nameLower.endsWith('.txt') || nameLower.endsWith('.md') || nameLower.endsWith('.json');
+    const isOffice = nameLower.endsWith('.docx') || nameLower.endsWith('.doc') || nameLower.endsWith('.pptx') || nameLower.endsWith('.ppt') || mime.includes("wordprocessingml") || mime.includes("presentationml") || mime.includes("ms-powerpoint") || mime.includes("msword") || mime.includes("officedocument.presentationml");
+    const isPdf = mime.includes("pdf");
+
+    // Hybrid Client-side extraction to drastically reduce network payload limits (eg, 4.5MB Vercel / Nginx limit)
+    let parsedText = "";
+    if (isOffice) {
+      parsedText = await clientExtractTextFromOffice(file);
+    } else if (isPdf) {
+      parsedText = await clientExtractTextFromPdfBinary(file);
+    }
+
+    // Limit direct upload payload base64 size to prevent Vercel 4.5MB crashes
+    const MAX_UPLOAD_SIZE = 3.0 * 1024 * 1024; // 3.0 MB
+
+    if (parsedText && (parsedText.trim().length > 10 || file.size > MAX_UPLOAD_SIZE)) {
+      const utf8ToBase64 = (str: string): string => {
+        return btoa(unescape(encodeURIComponent(str)));
+      };
+      
+      const safeText = parsedText.trim() || `[Tài liệu ${file.name} rỗng hoặc không thể rút trích chữ]`;
+      const base64Text = utf8ToBase64(safeText);
+      
+      setUploadedFile({
+        name: file.name,
+        size: file.size,
+        mimeType: "text/plain", // Keep text/plain so backend decodes as plain text
+        data: base64Text
+      });
+
+      setContent(""); // Clear manually typed content, AI will stick to uploaded documents
+      setIsFileLoading(false);
+      fetchAndConfigureMetadata("text/plain", base64Text, file.name);
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_SIZE) {
+      setGenerationError(
+        `Kích thước tệp tin (${(file.size / (1024 * 1024)).toFixed(1)}MB) quá lớn so với giới hạn tải lên trực tiếp của hạ tầng Vercel (tối đa 4.5MB tải trọng base64, tức tối đa 3.0MB tệp thô). ` +
+        `Bạn có thể: 1) Giảm dung lượng ảnh trong tệp Slide Slide PPT của bạn và xuất lại; 2) Chuyển đổi nó sang tệp dạng PDF dung lượng nhỏ; hoặc 3) Sao chép trực tiếp nội dung văn bản cốt lõi rồi dán trực tiếp vào khung nhập liệu bên dưới.`
+      );
+      setIsFileLoading(false);
+      return;
+    }
+
     const reader = new FileReader();
-    const isText = file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.json');
-    
     reader.onload = (event) => {
       const result = event.target?.result as string;
       if (!result) {
@@ -320,7 +507,6 @@ export default function App() {
         return;
       }
       
-      const mime = file.type || getMimeType(file.name);
       const base64Data = result.split(',')[1];
       
       setUploadedFile({
@@ -1052,8 +1238,23 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Gặp lỗi ngẫu nhiên trong quá trình kết xuất.");
+        let errMsg = "Gặp lỗi ngẫu nhiên trong quá trình kết xuất.";
+        try {
+          const text = await response.text();
+          try {
+            const errorData = JSON.parse(text);
+            errMsg = errorData.error || errMsg;
+          } catch {
+            if (response.status === 413 || text.toLowerCase().includes("too large") || text.toLowerCase().includes("payload too large")) {
+              errMsg = "Dung lượng tệp quá lớn để gửi qua cổng Vercel (Giới hạn tối đa 4.5MB). Vui lòng dán trực tiếp nội dung bài giảng cốt lõi hoặc tải tệp có dung lượng nhỏ hơn.";
+            } else {
+              errMsg = `Lỗi hệ thống (${response.status}): ${text.substring(0, 120)}`;
+            }
+          }
+        } catch {
+          errMsg = `Lỗi hệ thống (${response.status})`;
+        }
+        throw new Error(errMsg);
       }
 
       const lessonData: StructuredLesson = await response.json();
@@ -4178,11 +4379,11 @@ export default function App() {
                     onChange={(e) => setSelectedModel(e.target.value)}
                     className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-blue-200 bg-white focus:outline-0 focus:ring-1 focus:ring-blue-400 transition-all text-blue-955 shadow-3xs cursor-pointer"
                   >
-                    <option value="gemini-3.5-flash">Gemini 3.5 Flash (Phát hành mới nhất / Khuyên dùng)</option>
-                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Phản hồi cực nhanh / Tiết kiệm)</option>
-                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Phân tích cấp cao / Cần API Key trả phí)</option>
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Phiên bản 2.5)</option>
-                    <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Tương thích tốt nhất với API tự cấp / Chìa khóa cũ)</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Đề xuất / Cực nhanh & Thông minh)</option>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash (Tốc độ vượt trội)</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Độ tương thích cao / Ổn định)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (Siêu mạnh mẽ / Lập luận chuyên sâu)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Lý luận cao cấp)</option>
                   </select>
                 </div>
 

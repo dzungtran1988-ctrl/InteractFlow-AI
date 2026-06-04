@@ -3,35 +3,36 @@ import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
 import AdmZip from "adm-zip";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const pdf = require("pdf-parse");
 
 dotenv.config();
 
 async function extractTextFromPdf(base64Data: string): Promise<string> {
   try {
     const buffer = Buffer.from(base64Data, "base64");
-    const parsed = await pdf(buffer);
-    const text = parsed.text || "";
-    console.log(`[extractTextFromPdf] Extracted ${text.length} characters successfully using pdf-parse.`);
-    return text;
+    return extractPlainTextsFromPdfBinary(buffer);
   } catch (err) {
-    console.error("[extractTextFromPdf] Error extracting PDF text via pdf-parse:", err);
-    try {
-      const buffer = Buffer.from(base64Data, "base64");
-      return extractPlainTextsFromPdfBinary(buffer);
-    } catch (fallbackErr) {
-      console.error("[extractTextFromPdf] Fallback parser also failed:", fallbackErr);
-      return "";
-    }
+    console.error("[extractTextFromPdf] Error extracting PDF text:", err);
+    return "";
+  }
+}
+
+function decodePdfString(binaryStr: string): string {
+  try {
+    return binaryStr.replace(/\\([0-7]{1,3})/g, (match, octal) => {
+      return String.fromCharCode(parseInt(octal, 8));
+    }).replace(/\\([nrtbf()])/g, (match, char) => {
+      const map: Record<string, string> = { n: "\n", r: "\r", t: "\t", b: "\b", f: "\f" };
+      return map[char] || char;
+    }).replace(/\\(.)/g, "$1");
+  } catch {
+    return binaryStr;
   }
 }
 
 function extractPlainTextsFromPdfBinary(buffer: Buffer): string {
   try {
-    const rawString = buffer.toString("binary");
+    // Decode octal escapes and other backslashes first to preserve plain bytes (including UTF-8 Vietnamese)
+    const rawString = decodePdfString(buffer.toString("binary"));
     
     // Simple regex to extract strings in PDF parentheses (e.g., (some text))
     const regex = /\(([^)]+)\)/g;
@@ -48,7 +49,7 @@ function extractPlainTextsFromPdfBinary(buffer: Buffer): string {
         !segment.includes("\\") &&
         !segment.includes("%%") &&
         !segment.includes("obj") &&
-        !/[^\x20-\x7E\xA0-\xFF]/.test(segment)
+        !/[^\x20-\x7E\x80-\xFF]/.test(segment)
       ) {
         textSegments.push(segment);
       }
@@ -57,11 +58,16 @@ function extractPlainTextsFromPdfBinary(buffer: Buffer): string {
 
     if (textSegments.length > 15) {
       console.log(`[extractPlainTextsFromPdfBinary] Extracted ${textSegments.length} segments via parentheses.`);
-      return textSegments.join(" ");
+      const joined = textSegments.join(" ");
+      try {
+        return Buffer.from(joined, "binary").toString("utf-8");
+      } catch {
+        return joined;
+      }
     }
 
     // Broad printable character-scanning fallback
-    const printableMatches = rawString.match(/[\x20-\x7E\xA0-\xFF]{5,}/g);
+    const printableMatches = rawString.match(/[\x20-\x7E\x80-\xFF]{5,}/g);
     if (printableMatches) {
       const filtered = printableMatches.filter(s => {
         const lower = s.toLowerCase();
@@ -77,7 +83,12 @@ function extractPlainTextsFromPdfBinary(buffer: Buffer): string {
       });
       if (filtered.length > 10) {
         console.log(`[extractPlainTextsFromPdfBinary] Extracted ${filtered.length} printable broad lines.`);
-        return filtered.join(" ");
+        const joined = filtered.join(" ");
+        try {
+          return Buffer.from(joined, "binary").toString("utf-8");
+        } catch {
+          return joined;
+        }
       }
     }
 
@@ -228,7 +239,7 @@ function extractTextFromOffice(base64Data: string, mimeType: string): string {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Serve static assets or use body-parser with elevated limits
 app.use(express.json({ limit: "50mb" }));
@@ -738,7 +749,7 @@ async function initServerAndListen() {
     } catch (e) {
       console.error("[initServerAndListen] Failed to dynamically load and set up Vite:", e);
     }
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {

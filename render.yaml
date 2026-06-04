@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: giao-an-so-tuong-tac-gemini
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        placeholder: "Nhập khóa API Gemini của bạn ở đây"

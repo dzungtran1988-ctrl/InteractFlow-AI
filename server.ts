@@ -285,6 +285,25 @@ async function startServer() {
         modelsToTry.push(m);
       }
     }
+
+    // Format contents parameter correctly for the new @google/genai SDK structure
+    const finalParams = { ...params };
+    const rawContents = finalParams.contents;
+    if (rawContents) {
+      if (Array.isArray(rawContents)) {
+        // If it's an array, check if the items are Parts instead of Content objects.
+        // A Content object usually has a 'parts' array or a specific structure.
+        // If elements are Part objects (possess text or inlineData), wrap them into a single Content object { parts: rawContents }
+        const isArrayOfParts = rawContents.length > 0 && 
+                               (!rawContents[0].parts && (rawContents[0].text !== undefined || rawContents[0].inlineData !== undefined));
+        if (isArrayOfParts) {
+          finalParams.contents = { parts: rawContents };
+        }
+      } else if (typeof rawContents === "object" && !rawContents.parts && (rawContents.text !== undefined || rawContents.inlineData !== undefined)) {
+        // If a single Part is passed directly, map it to Content
+        finalParams.contents = { parts: [rawContents] };
+      }
+    }
     
     let lastError: any = null;
     
@@ -292,7 +311,7 @@ async function startServer() {
       try {
         console.log(`[robustGenerateContent] Attempting generation with model: ${modelName}`);
         const response = await ai.models.generateContent({
-          ...params,
+          ...finalParams,
           model: modelName
         });
         console.log(`[robustGenerateContent] Success with model: ${modelName}`);

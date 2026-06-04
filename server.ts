@@ -96,16 +96,24 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Initialize Gemini Client
-  const apiKey = process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
+  // Helper to dynamically get Gemini client either from headers or env
+  const getAiClient = (req: express.Request) => {
+    const key = (req.headers["x-gemini-key"] as string) || 
+                (req.headers["authorization"]?.toString().replace("Bearer ", "")) || 
+                process.env.GEMINI_API_KEY || 
+                "";
+    return {
+      client: key ? new GoogleGenAI({
+        apiKey: key,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      }) : null,
+      key
+    };
+  };
 
   // API Route to analyze uploaded files and extract lesson general configuration
   app.post("/api/analyze-metadata", async (req, res) => {
@@ -116,9 +124,11 @@ async function startServer() {
         return res.status(400).json({ error: "Thiếu dữ liệu tệp tin để phân tích" });
       }
 
-      if (!apiKey) {
+      const { client: ai, key } = getAiClient(req);
+
+      if (!key || !ai) {
         return res.status(500).json({
-          error: "Hiện tại hệ thống chưa cấu hình GEMINI_API_KEY. Vui lòng thiết lập khóa API trong Settings > Secrets."
+          error: "Hiện tại hệ thống chưa nhận được GEMINI_API_KEY. Vui lòng thiết lập khóa API trong UI hoặc trong Settings > Secrets."
         });
       }
 
@@ -215,9 +225,11 @@ Hãy phản hồi CHÍNH XÁC một cấu trúc JSON sau đây phù hợp nhất
         return res.status(400).json({ error: "Thiếu tiêu đề slide để tạo prompt" });
       }
 
-      if (!apiKey) {
+      const { client: ai, key } = getAiClient(req);
+
+      if (!key || !ai) {
         return res.status(500).json({
-          error: "Hiện tại hệ thống chưa cấu hình GEMINI_API_KEY. Vui lòng thiết lập khóa API trong Settings > Secrets."
+          error: "Hiện tại hệ thống chưa nhận được GEMINI_API_KEY. Vui lòng thiết lập khóa API trong UI hoặc trong Settings > Secrets."
         });
       }
 
@@ -258,9 +270,11 @@ Hướng dẫn phối cảnh mỹ thuật:
         return res.status(400).json({ error: "Vui lòng nhập nội dung bài giảng viết tay hoặc tải tệp tài liệu lên (PDF, PPT, Word...)." });
       }
 
-      if (!apiKey) {
+      const { client: ai, key } = getAiClient(req);
+
+      if (!key || !ai) {
         return res.status(500).json({
-          error: "Hiện tại hệ thống chưa cấu hình GEMINI_API_KEY. Vui lòng thiết lập khóa API trong Settings > Secrets của không gian AI Studio."
+          error: "Hiện tại hệ thống chưa nhận được GEMINI_API_KEY. Vui lòng thiết lập khóa API trong UI hoặc trong Settings > Secrets."
         });
       }
 

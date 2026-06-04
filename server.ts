@@ -6,44 +6,16 @@ import { createServer as createViteServer } from "vite";
 import AdmZip from "adm-zip";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdf = require("pdf-parse");
 
 dotenv.config();
 
 async function extractTextFromPdf(base64Data: string): Promise<string> {
   try {
     const buffer = Buffer.from(base64Data, "base64");
-    
-    // Wrap pdf-parse call in a Promise to enable racing with a timeout
-    const parsePromise = new Promise<string>(async (resolve, reject) => {
-      try {
-        const parsed = await pdf(buffer);
-        resolve(parsed.text || "");
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    const timeoutPromise = new Promise<string>((resolve) => {
-      setTimeout(() => {
-        resolve("__TIMEOUT__");
-      }, 4000);
-    });
-
-    const result = await Promise.race([parsePromise, timeoutPromise]);
-    if (result === "__TIMEOUT__") {
-      console.warn("[extractTextFromPdf] pdf-parse call timed out. Using pure binary fallback...");
-      return extractPlainTextsFromPdfBinary(buffer);
-    }
-    return result;
+    return extractPlainTextsFromPdfBinary(buffer);
   } catch (err) {
-    console.error("[extractTextFromPdf] Error parsing PDF via pdf-parse:", err);
-    try {
-      const buffer = Buffer.from(base64Data, "base64");
-      return extractPlainTextsFromPdfBinary(buffer);
-    } catch (fallbackErr) {
-      return "";
-    }
+    console.error("[extractTextFromPdf] Error extracting PDF text:", err);
+    return "";
   }
 }
 

@@ -4,8 +4,80 @@ import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import AdmZip from "adm-zip";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdf = require("pdf-parse");
 
 dotenv.config();
+
+async function extractTextFromPdf(base64Data: string): Promise<string> {
+  try {
+    const buffer = Buffer.from(base64Data, "base64");
+    const parsed = await pdf(buffer);
+    return parsed.text || "";
+  } catch (err) {
+    console.error("Error parsing PDF via pdf-parse:", err);
+    return "";
+  }
+}
+
+async function extractTextFromFile(base64Data: string, mimeType: string): Promise<string> {
+  const mime = (mimeType || "").toLowerCase();
+  
+  if (mime.includes("pdf")) {
+    return await extractTextFromPdf(base64Data);
+  }
+  
+  if (mime.includes("text/plain") || mime.includes("csv") || mime.includes("tsv")) {
+    try {
+      return Buffer.from(base64Data, "base64").toString("utf8");
+    } catch (e) {
+      return "";
+    }
+  }
+  
+  return extractTextFromOffice(base64Data, mimeType);
+}
+
+function parseRobustJson(text: string): any {
+  if (!text) return {};
+  
+  let cleaned = text.trim();
+  
+  // Try direct parse
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Continue with robustness cleaning
+  }
+
+  // Remove markdown tags if present
+  cleaned = cleaned.replace(/^```json\s*/i, "");
+  cleaned = cleaned.replace(/^```\s*/, "");
+  cleaned = cleaned.replace(/\s*```$/, "");
+  cleaned = cleaned.trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Try to extract first block matches between '{' and '}'
+  }
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = cleaned.substring(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch (e) {
+      // Continue
+    }
+  }
+
+  console.error("Failed to parse JSON string of length:", text.length);
+  console.error("Incorrect JSON content starts with:", text.substring(0, 300));
+  throw new Error(`Dữ liệu bài giảng trả về từ AI không ở dạng cấu trúc JSON hợp lệ. Thử lại sau ít phút hoặc tinh chỉnh dán nội dung thô trực tiếp.`);
+}
 
 function extractTextFromOffice(base64Data: string, mimeType: string): string {
   try {
@@ -158,16 +230,23 @@ async function startServer() {
         });
       }
 
-      const isOffice = file.mimeType.includes("wordprocessingml") ||
-                       file.mimeType.includes("msword") ||
-                       file.mimeType.includes("presentationml") ||
-                       file.mimeType.includes("ms-powerpoint") ||
-                       file.mimeType.includes("officedocument");
+      const isTextExtractable = file.mimeType.includes("wordprocessingml") ||
+                               file.mimeType.includes("msword") ||
+                               file.mimeType.includes("presentationml") ||
+                               file.mimeType.includes("ms-powerpoint") ||
+                               file.mimeType.includes("officedocument") ||
+                               file.mimeType.includes("pdf") ||
+                               file.mimeType.includes("text") ||
+                               file.mimeType.includes("csv") ||
+                               file.mimeType.includes("json");
 
       const contents = [];
 
-      if (isOffice) {
-        const extractedText = extractTextFromOffice(file.data, file.mimeType);
+      if (isTextExtractable) {
+        let extractedText = await extractTextFromFile(file.data, file.mimeType);
+        if (extractedText.length > 35000) {
+          extractedText = extractedText.substring(0, 35000) + "\n\n...(Nội dung bị lược bớt để phù hợp với định mức xử lý dữ liệu)...";
+        }
         contents.push({
           text: `NỘI DUNG TÀI LIỆU ĐÍNH KÈM (ĐÃ TRÍCH XUẤT THÀNH VĂN BẢN):\n\n${extractedText || "(Tài liệu trống hoặc không thể trích xuất)"}`
         });
@@ -217,7 +296,7 @@ Hãy phản hồi CHÍNH XÁC một cấu trúc JSON sau đây phù hợp nhất
         }
       });
 
-      const meta = JSON.parse(response.text || "{}");
+      const meta = parseRobustJson(response.text || "{}");
       res.json(meta);
     } catch (error: any) {
       const errMsg = (error && error.message) ? error.message : String(error);
@@ -306,14 +385,21 @@ Hướng dẫn phối cảnh mỹ thuật:
 
       // If they uploaded a syllabus/slide file, pass it as a document part
       if (file && file.data && file.mimeType) {
-        const isOffice = file.mimeType.includes("wordprocessingml") ||
-                         file.mimeType.includes("msword") ||
-                         file.mimeType.includes("presentationml") ||
-                         file.mimeType.includes("ms-powerpoint") ||
-                         file.mimeType.includes("officedocument");
+        const isTextExtractable = file.mimeType.includes("wordprocessingml") ||
+                                 file.mimeType.includes("msword") ||
+                                 file.mimeType.includes("presentationml") ||
+                                 file.mimeType.includes("ms-powerpoint") ||
+                                 file.mimeType.includes("officedocument") ||
+                                 file.mimeType.includes("pdf") ||
+                                 file.mimeType.includes("text") ||
+                                 file.mimeType.includes("csv") ||
+                                 file.mimeType.includes("json");
 
-        if (isOffice) {
-          const extractedText = extractTextFromOffice(file.data, file.mimeType);
+        if (isTextExtractable) {
+          let extractedText = await extractTextFromFile(file.data, file.mimeType);
+          if (extractedText.length > 35000) {
+            extractedText = extractedText.substring(0, 35000) + "\n\n...(Nội dung bị lược bớt để phù hợp với định mức xử lý dữ liệu)...";
+          }
           contents.push({
             text: `NỘI DUNG TÀI LIỆU ĐÍNH KÈM (ĐÃ TRÍCH XUẤT THÀNH VĂN BẢN):\n\n${extractedText || "(Tài liệu trống hoặc không thể trích xuất)"}`
           });
@@ -515,7 +601,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         }
       });
 
-      const lessonJson = JSON.parse(response.text || "{}");
+      const lessonJson = parseRobustJson(response.text || "{}");
       res.json(lessonJson);
     } catch (error: any) {
       console.error("Gemini Generation Error:", error);

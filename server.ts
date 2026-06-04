@@ -98,10 +98,11 @@ async function startServer() {
 
   // Helper to dynamically get Gemini client either from headers or env
   const getAiClient = (req: express.Request) => {
-    const key = (req.headers["x-gemini-key"] as string) || 
-                (req.headers["authorization"]?.toString().replace("Bearer ", "")) || 
-                process.env.GEMINI_API_KEY || 
-                "";
+    let key = (req.headers["x-gemini-key"] as string) || 
+              (req.headers["authorization"]?.toString().replace("Bearer ", "")) || 
+              process.env.GEMINI_API_KEY || 
+              "";
+    key = key.trim();
     return {
       client: key ? new GoogleGenAI({
         apiKey: key,
@@ -113,6 +114,31 @@ async function startServer() {
       }) : null,
       key
     };
+  };
+
+  // Helper to run content generation with model fallback for restricted/free-tier keys
+  const robustGenerateContent = async (ai: any, params: any) => {
+    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest"];
+    let lastError: any = null;
+    
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`[robustGenerateContent] Attempting generation with model: ${modelName}`);
+        const response = await ai.models.generateContent({
+          ...params,
+          model: modelName
+        });
+        console.log(`[robustGenerateContent] Success with model: ${modelName}`);
+        return response;
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        console.warn(`[robustGenerateContent] Model ${modelName} failed. Error:`, errMsg);
+        
+        // If it's a quota or connection error or explicitly disallowed, continue to try standard models
+      }
+    }
+    throw lastError;
   };
 
   // API Route to analyze uploaded files and extract lesson general configuration
@@ -167,8 +193,7 @@ Hãy phản hồi CHÍNH XÁC một cấu trúc JSON sau đây phù hợp nhất
 }`
       });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await robustGenerateContent(ai, {
         contents: contents,
         config: {
           systemInstruction: "Bạn là một học giả, giảng viên đại học xuất sắc, phân tích sâu các đề cương tài liệu học tập của Việt Nam để chuyển thành metadata đại cương trực tuyến dưới dạng JSON hợp lệ hoàn toàn.",
@@ -233,8 +258,7 @@ Hãy phản hồi CHÍNH XÁC một cấu trúc JSON sau đây phù hợp nhất
         });
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await robustGenerateContent(ai, {
         contents: [
           {
             text: `Bạn là giám đốc sáng tạo mỹ thuật học tập trực thuộc ban đổi mới sư phạm số. Hãy tạo ra một câu prompt chi tiết bằng tiếng Anh (khoảng 20-30 từ) để từ đó khởi tạo một hình vẽ minh họa tuyệt đẹp, bám sát nội dung học của slide này.
@@ -370,8 +394,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
       contents.push({ text: promptText });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      const response = await robustGenerateContent(ai, {
         contents: contents,
         config: {
           systemInstruction: "Bạn là một học giả và chuyên gia sư phạm đại học xuất sắc bậc nhất tại Việt Nam, sở hữu tư duy thiết kế bài giảng số tích cực chuẩn quốc tế, giúp sinh viên có trải nghiệm học tập đỉnh cao.",

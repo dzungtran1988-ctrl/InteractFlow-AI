@@ -25,7 +25,8 @@ import {
   UploadCloud,
   FileText,
   X,
-  Trash2
+  Search,
+  Zap
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -626,7 +627,7 @@ export default function App() {
   // Interface for Parsed Bento details
   interface ParsedBentoContent {
     hero: string;
-    layoutType: 'grid' | 'timeline' | 'twocolumn' | 'hero-only' | 'comparison';
+    layoutType: 'grid' | 'timeline' | 'twocolumn' | 'hero-only' | 'comparison' | 'list-block';
     points: { title: string; body: string }[];
     takeaway: string;
   }
@@ -635,6 +636,11 @@ export default function App() {
   const parseSlideMarkdown = (title: string, contentText: string): ParsedBentoContent => {
     let preparedText = String(contentText || "").trim();
     
+    // Fix literal string \n that might be returned by the model
+    if (preparedText.includes('\\n')) {
+      preparedText = preparedText.replace(/\\n/g, '\n');
+    }
+
     // Help handle inline-bullet single line styles if any
     if (!preparedText.includes('\n')) {
       if (preparedText.includes('; *')) {
@@ -642,6 +648,8 @@ export default function App() {
       } else if (preparedText.includes('; -')) {
         preparedText = preparedText.replace(/;\s*-/g, '\n-');
       }
+      // Handle inline dash plus bold asterisks: " - **"
+      preparedText = preparedText.replace(/\s?-\s\*\*/g, '\n- **');
     }
 
     const lines = preparedText.split('\n').map(l => l.trim()).filter(Boolean);
@@ -651,7 +659,7 @@ export default function App() {
 
     // Identify layout type based on slide title
     const tLower = title.toLowerCase();
-    let layoutType: 'grid' | 'timeline' | 'twocolumn' | 'hero-only' | 'comparison' = 'grid';
+    let layoutType: 'grid' | 'timeline' | 'twocolumn' | 'hero-only' | 'comparison' | 'list-block' = 'grid';
     if (tLower.includes('quy trình') || tLower.includes('các bước') || tLower.includes('tiến trình') || tLower.includes('vòng đời') || tLower.includes('bước')) {
       layoutType = 'timeline';
     } else if (tLower.includes('so sánh') || tLower.includes('khác biệt') || tLower.includes('đối chiếu') || tLower.includes('phân biệt')) {
@@ -772,6 +780,8 @@ export default function App() {
       layoutType = 'twocolumn';
     } else if (points.length === 0) {
       layoutType = 'hero-only';
+    } else if (points.length >= 5) {
+      layoutType = 'list-block';
     }
 
     if (!detectedTakeaway) {
@@ -794,18 +804,18 @@ export default function App() {
 
     // Theme categorizer based on slide title
     const tLower = title.toLowerCase();
-    let kicker = '📌 Kiến thức cốt lõi';
+    let kicker: React.ReactNode = <><BookOpen className="w-3.5 h-3.5" /> Kiến thức cốt lõi</>;
     
     if (tLower.includes('khái niệm') || tLower.includes('định nghĩa') || tLower.includes('là gì') || tLower.includes('tổng quan') || tLower.includes('giới thiệu') || tLower.includes('lý thuyết')) {
-      kicker = '🔍 Định nghĩa & Khái niệm';
+      kicker = <><Search className="w-3.5 h-3.5" /> Định nghĩa & Khái niệm</>;
     } else if (tLower.includes('quy trình') || tLower.includes('các bước') || tLower.includes('tiến trình') || tLower.includes('vòng đời') || tLower.includes('thuật toán') || tLower.includes('workflow') || tLower.includes('bước')) {
-      kicker = '🔄 Quy trình & Các bước';
+      kicker = <><RotateCcw className="w-3.5 h-3.5" /> Quy trình & Các bước</>;
     } else if (tLower.includes('lợi ích') || tLower.includes('ưu điểm') || tLower.includes('u việt') || tLower.includes('giá trị') || tLower.includes('cơ hội') || tLower.includes('vai trò')) {
-      kicker = '✨ Giá trị & Lợi thế';
+      kicker = <><Sparkles className="w-3.5 h-3.5" /> Giá trị & Lợi thế</>;
     } else if (tLower.includes('hạn chế') || tLower.includes('nhược điểm') || tLower.includes('thử thách') || tLower.includes('lưu ý') || tLower.includes('rủi ro') || tLower.includes('cảnh báo') || tLower.includes('bảo mật') || tLower.includes('thận trọng')) {
-      kicker = '🚨 Lưu ý & Rủi ro';
+      kicker = <><AlertCircle className="w-3.5 h-3.5" /> Lưu ý & Rủi ro</>;
     } else if (tLower.includes('ứng dụng') || tLower.includes('thực tế') || tLower.includes('thực tiễn') || tLower.includes('áp dụng') || tLower.includes('thực hành') || tLower.includes('ví dụ')) {
-      kicker = '🛠️ Ứng dụng thực tiễn';
+      kicker = <><PenTool className="w-3.5 h-3.5" /> Ứng dụng thực tiễn</>;
     }
 
     // Dynamic theme classes matching user selected appTheme perfectly
@@ -964,14 +974,38 @@ export default function App() {
         );
       }
 
+      if (layoutType === 'list-block') {
+        return (
+          <section className={`core-slide-hero p-5 rounded-2xl border transition-all duration-300 ${themeClasses.hero}`}>
+            <ul className="space-y-4">
+              {points.map((pt, idx) => (
+                <li key={idx} className={`leading-relaxed ${slideTheme === 'light' ? 'text-slate-800' : 'text-slate-100'} flex items-start gap-3`}>
+                  <span className={`mt-0.5 flex-shrink-0 text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-sm border ${themeClasses.pointIndex}`}>
+                    {idx + 1}
+                  </span>
+                  <div>
+                    {pt.title && (
+                      <strong className="font-extrabold tracking-wide block mb-0.5 text-[13px]">
+                        {pt.title}
+                      </strong>
+                    )}
+                    <span className="text-xs font-semibold leading-relaxed opacity-90">{pt.body}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      }
+
       if (layoutType === 'twocolumn') {
         return (
           <section className="core-slide-twocolumn grid grid-cols-1 md:grid-cols-2 gap-4 my-2">
             {points.map((pt, idx) => (
               <article key={idx} className={`p-5 rounded-2xl border flex flex-col justify-start gap-2.5 transition-all shadow-sm ${themeClasses.pointCard}`}>
                 {pt.title && (
-                  <strong className={`font-black text-xs sm:text-[13px] tracking-tight block border-b pb-1.5 ${themeClasses.textAccent}`}>
-                    💡 {pt.title}
+                  <strong className={`font-black text-xs sm:text-[13px] tracking-tight block border-b pb-1.5 ${themeClasses.textAccent} flex items-center gap-1.5`}>
+                    <Lightbulb className="w-3.5 h-3.5" /> {pt.title}
                   </strong>
                 )}
                 <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-655' : 'text-slate-300'}`}>
@@ -1098,7 +1132,7 @@ export default function App() {
         {takeaway && (
           <section className={`core-slide-takeaway flex gap-3 p-4.5 rounded-2xl border transition-all duration-300 ${themeClasses.takeaway}`}>
             <span className="takeaway-icon flex-shrink-0 w-8.5 h-8.5 rounded-xl flex items-center justify-center bg-white/20 border border-white/20 text-sm shadow">
-              💎
+              <Sparkles className="w-4 h-4 text-white" />
             </span>
             <div className="space-y-0.5 text-white">
               <strong className="text-amber-300 block text-[10px] uppercase font-black tracking-widest leading-none">Chốt ý giảng viên:</strong>
@@ -1667,6 +1701,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Marked.js CDN for robust markdown parsing (tables, lists, nested lists etc) -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Google fonts (Montserrat & Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1696,6 +1732,18 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     }
     .rotate-y-180 {
       transform: rotateY(180deg);
+    }
+    .lucide {
+      stroke-width: 1.5;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: all 0.3s ease;
+    }
+    .nav-nav-btn.border-l-4 .lucide,
+    .mobile-nav-btn.text-blue-600 .lucide {
+      filter: drop-shadow(0 0 6px currentColor);
+      stroke-width: 2;
     }
     .scrollbar-thin::-webkit-scrollbar {
       width: 6px;
@@ -2620,31 +2668,31 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           <p class="text-slate-400 font-extrabold text-[10px] uppercase tracking-wider px-3 mb-2">Lộ trình học tập</p>
           
           <button id="nav-intro" onclick="showTab('intro')" class="nav-nav-btn w-full text-left py-3 px-4 rounded-2xl transition-all font-bold text-xs flex items-center gap-3 text-blue-700 bg-blue-500/10 border-l-4 border-blue-500 backdrop-blur-md shadow-sm shadow-blue-500/5">
-            <span>📌</span> <span>Giới thiệu & Mục tiêu</span>
+            <i data-lucide="book-marked" class="w-4 h-4"></i> <span>Giới thiệu & Mục tiêu</span>
           </button>
           
           <button id="nav-warmup" onclick="showTab('warmup')" class="nav-nav-btn w-full text-left py-3 px-4 rounded-2xl transition-all font-bold text-xs flex items-center gap-3 text-slate-700 hover:bg-white/50 hover:shadow-sm">
-            <span>⚡</span> <span>Kích hoạt trí não</span>
+            <i data-lucide="lightbulb" class="w-4 h-4"></i> <span>Kích hoạt trí não</span>
           </button>
           
           <button id="nav-sections" onclick="showTab('sections')" class="nav-nav-btn w-full text-left py-3 px-4 rounded-2xl transition-all font-bold text-xs flex items-center gap-3 text-slate-700 hover:bg-white/50 hover:shadow-sm">
-            <span>📖</span> <span>Kiến thức cốt lõi</span>
+            <i data-lucide="book-open" class="w-4 h-4"></i> <span>Kiến thức cốt lõi</span>
           </button>
           
           <button id="nav-flashcards" onclick="showTab('flashcards')" class="nav-nav-btn w-full text-left py-3 px-4 rounded-2xl transition-all font-bold text-xs flex items-center gap-3 text-slate-700 hover:bg-white/50 hover:shadow-sm">
-            <span>🎴</span> <span>Thẻ thuật ngữ</span>
+            <i data-lucide="layers" class="w-4 h-4"></i> <span>Thẻ thuật ngữ</span>
           </button>
           
           <button id="nav-quiz" onclick="showTab('quiz')" class="nav-nav-btn w-full text-left py-3 px-4 rounded-2xl transition-all font-bold text-xs flex items-center gap-3 text-slate-700 hover:bg-white/50 hover:shadow-sm">
-            <span>📝</span> <span>Trắc nghiệm Quiz</span>
+            <i data-lucide="help-circle" class="w-4 h-4"></i> <span>Trắc nghiệm Quiz</span>
           </button>
           
           <button id="nav-casestudy" onclick="showTab('casestudy')" class="nav-nav-btn w-full text-left py-3 px-4 rounded-2xl transition-all font-bold text-xs flex items-center gap-3 text-slate-700 hover:bg-white/50 hover:shadow-sm">
-            <span>💼</span> <span>Tình huống thực tế</span>
+            <i data-lucide="award" class="w-4 h-4"></i> <span>Tình huống thực tế</span>
           </button>
           
           <button id="nav-reflection" onclick="showTab('reflection')" class="nav-nav-btn w-full text-left py-3 px-4 rounded-2xl transition-all font-bold text-xs flex items-center gap-3 text-slate-700 hover:bg-white/50 hover:shadow-sm">
-            <span>✍️</span> <span>Bản ghi thu hoạch</span>
+            <i data-lucide="pen-tool" class="w-4 h-4"></i> <span>Bản ghi thu hoạch</span>
           </button>
 
           <div class="mt-4 pt-4 border-t border-slate-100/50 text-center">
@@ -2670,7 +2718,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
         <div class="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-5 sm:p-6 rounded-2xl border border-emerald-500/20">
           <h3 class="font-bold text-emerald-800 text-sm sm:text-base flex items-center gap-2 mb-3">
-            🎯 3 Mục tiêu học tập cốt lõi (Thang Bloom)
+            <i data-lucide="target" class="w-5 h-5"></i> 3 Mục tiêu học tập cốt lõi (Thang Bloom)
           </h3>
           <ul class="space-y-3">
             ${lesson.learningObjectives.map((obj, i) => `
@@ -2840,8 +2888,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                 <textarea id="quickcheck-student-input" oninput="saveQuickCheckResponse(false)" placeholder="Hãy viết lập luận, phản hồi ngắn gọn của mình tại đây để tự kiểm định..." rows="2" class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white shadow-sm"></textarea>
                 
                 <div class="flex flex-wrap gap-1.5 pt-1">
-                  <button onclick="toggleQuickHint()" class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold rounded-lg transition-all border border-amber-200 cursor-pointer select-none">💡 Xem gợi ý tư duy</button>
-                  <button onclick="toggleQuickModel()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg transition-all border border-emerald-200 cursor-pointer select-none">🎓 Đối chiếu phản hồi mẫu</button>
+                  <button onclick="toggleQuickHint()" class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold rounded-lg transition-all border border-amber-200 cursor-pointer select-none"><i data-lucide="lightbulb" class="inline w-3 h-3 mr-1 mb-0.5"></i> Xem gợi ý tư duy</button>
+                  <button onclick="toggleQuickModel()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg transition-all border border-emerald-200 cursor-pointer select-none"><i data-lucide="graduation-cap" class="inline w-3 h-3 mr-1 mb-0.5"></i> Đối chiếu phản hồi mẫu</button>
                 </div>
 
                 <div id="quickcheck-hint-box" class="hidden p-3 bg-amber-50 border border-amber-100 text-amber-950 rounded-xl text-xs leading-relaxed font-semibold">
@@ -3079,17 +3127,17 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                 <textarea id="case-student-input-${tIdx}" oninput="saveCaseResponse(${tIdx})" placeholder="Nhập câu trả lời phân tích thực thi của bạn tại đây để đối sánh..." rows="3" class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white shadow-sm"></textarea>
 
                 <div class="flex flex-wrap gap-2 pt-1">
-                  <button onclick="toggleCaseHint(${tIdx})" class="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-lg transition-all border border-amber-150 cursor-pointer select-none">💡 Xem gợi ý tư duy</button>
-                  <button onclick="toggleCaseModel(${tIdx})" class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg transition-all border border-emerald-150 cursor-pointer select-none">🎓 Đối chiếu phản hồi mẫu</button>
+                  <button onclick="toggleCaseHint(${tIdx})" class="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-lg transition-all border border-amber-150 cursor-pointer select-none"><i data-lucide="lightbulb" class="inline w-3.5 h-3.5 mr-1 mb-0.5"></i> Xem gợi ý tư duy</button>
+                  <button onclick="toggleCaseModel(${tIdx})" class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg transition-all border border-emerald-150 cursor-pointer select-none"><i data-lucide="graduation-cap" class="inline w-3.5 h-3.5 mr-1 mb-0.5"></i> Đối chiếu phản hồi mẫu</button>
                 </div>
 
                 <div id="case-hint-box-${tIdx}" class="hidden p-3 bg-amber-50 border border-amber-100 text-amber-950 rounded-xl text-xs leading-relaxed font-semibold">
-                  <strong>💡 Gợi ý định hướng:</strong><br/>
+                  <strong><i data-lucide="lightbulb" class="inline w-4 h-4 mr-1 text-amber-600 mb-0.5"></i> Gợi ý định hướng:</strong><br/>
                   ${task.hint}
                 </div>
 
                 <div id="case-model-box-${tIdx}" class="hidden p-3 bg-emerald-50 border border-emerald-100 text-emerald-950 rounded-xl text-xs leading-relaxed">
-                  <strong>🎓 Giải pháp mẫu đề xuất:</strong><br/>
+                  <strong><i data-lucide="graduation-cap" class="inline w-4 h-4 mr-1 text-emerald-600 mb-0.5"></i> Giải pháp mẫu đề xuất:</strong><br/>
                   ${task.suggestedAnswer}
                 </div>
               </div>
@@ -3190,25 +3238,25 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
   <!-- Sticky Mobile Mini Footer Panel for easy navigation -->
   <div class="lg:hidden bg-white/80 backdrop-blur-xl border-t border-slate-200 sticky bottom-0 z-40 py-2.5 px-3 grid grid-cols-7 gap-1 shadow-2xl shadow-blue-500/5">
     <button id="mobile-nav-intro" onclick="showTab('intro')" class="mobile-nav-btn text-[10px] text-center font-bold flex flex-col items-center justify-center gap-1 text-blue-600 font-extrabold scale-105 transition-all duration-300">
-      <span class="text-xs">📌</span> <span>Intro</span>
+      <i data-lucide="book-marked" class="w-4 h-4 mb-0.5"></i> <span>Intro</span>
     </button>
     <button id="mobile-nav-warmup" onclick="showTab('warmup')" class="mobile-nav-btn text-[10px] text-center font-bold flex flex-col items-center justify-center gap-1 text-slate-500 transition-all duration-300">
-      <span class="text-xs">⚡</span> <span>Khởi động</span>
+      <i data-lucide="lightbulb" class="w-4 h-4 mb-0.5"></i> <span>Khởi động</span>
     </button>
     <button id="mobile-nav-sections" onclick="showTab('sections')" class="mobile-nav-btn text-[10px] text-center font-bold flex flex-col items-center justify-center gap-1 text-slate-500 transition-all duration-300">
-      <span class="text-xs">📖</span> <span>Lý thuyết</span>
+      <i data-lucide="book-open" class="w-4 h-4 mb-0.5"></i> <span>Lý thuyết</span>
     </button>
     <button id="mobile-nav-flashcards" onclick="showTab('flashcards')" class="mobile-nav-btn text-[10px] text-center font-bold flex flex-col items-center justify-center gap-1 text-slate-500 transition-all duration-300">
-      <span class="text-xs">🎴</span> <span>Thẻ</span>
+      <i data-lucide="layers" class="w-4 h-4 mb-0.5"></i> <span>Thẻ</span>
     </button>
     <button id="mobile-nav-quiz" onclick="showTab('quiz')" class="mobile-nav-btn text-[10px] text-center font-bold flex flex-col items-center justify-center gap-1 text-slate-500 transition-all duration-300">
-      <span class="text-xs">📝</span> <span>Quiz</span>
+      <i data-lucide="help-circle" class="w-4 h-4 mb-0.5"></i> <span>Quiz</span>
     </button>
     <button id="mobile-nav-casestudy" onclick="showTab('casestudy')" class="mobile-nav-btn text-[10px] text-center font-bold flex flex-col items-center justify-center gap-1 text-slate-500 transition-all duration-300">
-      <span class="text-xs">💼</span> <span>Tập sự</span>
+      <i data-lucide="award" class="w-4 h-4 mb-0.5"></i> <span>Tập sự</span>
     </button>
     <button id="mobile-nav-reflection" onclick="showTab('reflection')" class="mobile-nav-btn text-[10px] text-center font-bold flex flex-col items-center justify-center gap-1 text-slate-500 transition-all duration-300">
-      <span class="text-xs">✍️</span> <span>Ngẫm</span>
+      <i data-lucide="pen-tool" class="w-4 h-4 mb-0.5"></i> <span>Ngẫm</span>
     </button>
   </div>
 
@@ -3222,6 +3270,9 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
   <!-- Script logics -->
   <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
     let currentTab = 'intro';
     let activeSectionIdx = 0;
     let score = 0;
@@ -3302,10 +3353,12 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
     function navigateSlide(direction) {
       const total = ${sectionsCount};
+      let changed = false;
       if (direction === 'next') {
         if (activeSectionIdx < total - 1) {
           activeSectionIdx++;
           renderActiveSection();
+          changed = true;
         } else {
           showTab('flashcards');
         }
@@ -3313,9 +3366,20 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         if (activeSectionIdx > 0) {
           activeSectionIdx--;
           renderActiveSection();
+          changed = true;
         } else {
           showTab('warmup');
         }
+      }
+
+      if (changed) {
+        setTimeout(() => {
+          const el = isSlideMode ? document.getElementById('slide-presentation-container') : document.getElementById('doc-reading-container');
+          if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 80;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+          }
+        }, 50);
       }
     }
 
@@ -3568,12 +3632,13 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       
       if (hintBox) {
         hintBox.classList.add('hidden');
-        hintBox.innerHTML = "💡 <strong>Gợi ý:</strong> " + (data.quickCheck ? data.quickCheck.hint : "");
+        hintBox.innerHTML = '<i data-lucide="lightbulb" class="inline w-4 h-4 text-amber-600 mr-1 pb-0.5"></i> <strong>Gợi ý:</strong> ' + (data.quickCheck ? data.quickCheck.hint : "");
       }
       if (modelBox) {
         modelBox.classList.add('hidden');
-        modelBox.innerHTML = "🎓 <strong>Phản hồi mẫu của giảng viên:</strong> " + (data.quickCheck ? data.quickCheck.suggestedAnswer : "");
+        modelBox.innerHTML = '<i data-lucide="graduation-cap" class="inline w-4 h-4 text-emerald-600 mr-1 pb-0.5"></i> <strong>Phản hồi mẫu của giảng viên:</strong> ' + (data.quickCheck ? data.quickCheck.suggestedAnswer : "");
       }
+      lucide.createIcons();
     }
 
     function saveQuickCheckResponse(isFromDoc) {
@@ -3967,6 +4032,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         } else if (preparedText.includes('; -')) {
           preparedText = preparedText.replace(/;\\s*-/g, '\\n-');
         }
+        preparedText = preparedText.replace(/\\s?-\\s\\*\\*/g, '\\n- **');
       }
 
       const lines = preparedText.split('\\n').map(l => l.trim()).filter(Boolean);
@@ -4092,6 +4158,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         layoutType = 'twocolumn';
       } else if (points.length === 0) {
         layoutType = 'hero-only';
+      } else if (points.length >= 5) {
+        layoutType = 'list-block';
       }
 
       if (!detectedTakeaway) {
@@ -4106,17 +4174,17 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       }
 
       // Dynamic theme styling matching renderBentoSlide perfectly (appTheme interpolations)
-      let kicker = "📌 Kiến thức cốt lõi";
+      let kicker = '<i data-lucide="book-open" class="inline w-3 h-3 mr-1 mb-0.5"></i> Kiến thức cốt lõi';
       if (tLower.includes('khái niệm') || tLower.includes('định nghĩa') || tLower.includes('là gì') || tLower.includes('tổng quan') || tLower.includes('giới thiệu') || tLower.includes('lý thuyết')) {
-        kicker = "🔍 Định nghĩa & Khái niệm";
+        kicker = '<i data-lucide="search" class="inline w-3 h-3 mr-1 mb-0.5"></i> Định nghĩa & Khái niệm';
       } else if (tLower.includes('quy trình') || tLower.includes('các bước') || tLower.includes('tiến trình') || tLower.includes('vòng đời') || tLower.includes('thuật toán') || tLower.includes('workflow') || tLower.includes('bước')) {
-        kicker = "🔄 Quy trình & Các bước";
+        kicker = '<i data-lucide="refresh-cw" class="inline w-3 h-3 mr-1 mb-0.5"></i> Quy trình & Các bước';
       } else if (tLower.includes('lợi ích') || tLower.includes('ưu điểm') || tLower.includes('u việt') || tLower.includes('giá trị') || tLower.includes('cơ hội') || tLower.includes('vai trò')) {
-        kicker = "✨ Giá trị & Lợi thế";
+        kicker = '<i data-lucide="sparkles" class="inline w-3 h-3 mr-1 mb-0.5"></i> Giá trị & Lợi thế';
       } else if (tLower.includes('hạn chế') || tLower.includes('nhược điểm') || tLower.includes('thử thách') || tLower.includes('lưu ý') || tLower.includes('rủi ro') || tLower.includes('cảnh báo') || tLower.includes('bảo mật') || tLower.includes('thận trọng')) {
-        kicker = "🚨 Lưu ý & Rủi ro";
+        kicker = '<i data-lucide="alert-triangle" class="inline w-3 h-3 mr-1 mb-0.5"></i> Lưu ý & Rủi ro';
       } else if (tLower.includes('ứng dụng') || tLower.includes('thực tế') || tLower.includes('thực tiễn') || tLower.includes('áp dụng') || tLower.includes('thực hành') || tLower.includes('ví dụ')) {
-        kicker = "🛠️ Ứng dụng thực tiễn";
+        kicker = '<i data-lucide="tool" class="inline w-3 h-3 mr-1 mb-0.5"></i> Ứng dụng thực tiễn';
       }
 
       // App theme matches: emerald, sunset, mystic, rose, ocean
@@ -4191,11 +4259,26 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           return html;
         }
 
+        if (layoutType === 'list-block') {
+          let html = '<section class="core-slide-hero my-4 leading-relaxed" style="' + heroStyle + '; padding: 1.25rem; border-radius: 1rem;">';
+          html += '<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1rem;">';
+          points.forEach((pt, idx) => {
+            html += '<li style="display: flex; align-items: flex-start; gap: 0.75rem;">' +
+              '<span class="point-index" style="' + pointIndexStyle + '; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 10px; flex-shrink: 0; margin-top: 0.15rem;">' + (idx + 1) + '</span>' +
+              '<div>' +
+              (pt.title ? '<strong style="display: block; font-size: 13px; font-weight: 800; margin-bottom: 0.15rem;">' + pt.title + '</strong>' : '') +
+              '<span style="font-size: 12px; font-weight: 600; opacity: 0.9;">' + pt.body + '</span>' +
+              '</div></li>';
+          });
+          html += '</ul></section>';
+          return html;
+        }
+
         if (layoutType === 'twocolumn') {
           let html = '<section class="core-slide-twocolumn my-4">';
           points.forEach((pt) => {
             html += '<article class="core-slide-point flex flex-col justify-start gap-2 max-w-none shadow-sm">' +
-              (pt.title ? '<strong style="' + pTitleStyle + '; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 0.3rem;">💡 ' + pt.title + '</strong>' : '') +
+              (pt.title ? '<strong style="' + pTitleStyle + '; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 0.3rem;"><i data-lucide="lightbulb" class="inline w-3 h-3 mr-1 mb-0.5"></i> ' + pt.title + '</strong>' : '') +
               '<span>' + pt.body + '</span>' +
               '</article>';
           });
@@ -4268,7 +4351,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       return '<div class="core-slide-layout text-left w-full space-y-4">' +
         wrapperHtml +
         '<section class="core-slide-takeaway" style="' + takeawayStyle + '">' +
-        '<span class="takeaway-icon">💎</span>' +
+        '<span class="takeaway-icon"><i data-lucide="gem" class="w-4 h-4 text-white"></i></span>' +
         '<div style="color: #fff;"><strong style="color: #fcd34d !important; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 0.1rem;">Chốt ý giảng viên:</strong>' +
         '<p style="font-size: 13px !important; font-weight: 700; line-height: 1.5; margin: 0 !important; color: #fff !important;">' + inlineCoreMarkdown(detectedTakeaway) + '</p></div>' +
         '</section></div>';
@@ -4329,11 +4412,23 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     setTimeout(() => setCopiedText(false), 2000);
   };
 
+  // Helper to scroll to the top of the slide container when navigating
+  const scrollToPreviewSlide = () => {
+    setTimeout(() => {
+      const container = document.getElementById('interactive-content-container');
+      if (container) {
+        const y = container.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+    }, 50);
+  };
+
   // Preview Simulator Interaction logic helpers for the Lecturer test-flight
   const handlePreviewNextSection = () => {
     if (!generatedLesson) return;
     if (previewSectionIdx < generatedLesson.sections.length - 1) {
       setPreviewSectionIdx(prev => prev + 1);
+      scrollToPreviewSlide();
     } else {
       setPreviewTab("flashcards");
     }
@@ -4342,6 +4437,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
   const handlePreviewPrevSection = () => {
     if (previewSectionIdx > 0) {
       setPreviewSectionIdx(prev => prev - 1);
+      scrollToPreviewSlide();
     } else {
       setPreviewTab("warmup");
     }
@@ -4552,7 +4648,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xl shadow-md font-bold">
-              ⚡
+              <Zap className="w-5 h-5 fill-white text-white" />
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
@@ -4569,7 +4665,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
               <button
                 id="tab-edit"
                 onClick={() => setActiveTab('editor')}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'editor' ? 'bg-white text-slate-800 shadow-sm cursor-pointer' : 'text-slate-500 hover:text-slate-800 cursor-pointer'}`}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'editor' ? 'bg-white text-slate-800 shadow-sm cursor-pointer active-tab-btn' : 'text-slate-500 hover:text-slate-800 cursor-pointer'}`}
               >
                 <PenTool className="w-3.5 h-3.5" /> Thiết lập Giáo án
               </button>
@@ -4579,14 +4675,14 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                   <button
                     id="tab-sim"
                     onClick={() => setActiveTab('preview')}
-                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'preview' ? 'bg-white text-emerald-800 shadow-sm font-black cursor-pointer' : 'text-slate-500 hover:text-emerald-800 cursor-pointer'}`}
+                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'preview' ? 'bg-white text-emerald-800 shadow-sm font-black cursor-pointer active-tab-btn' : 'text-slate-500 hover:text-emerald-800 cursor-pointer'}`}
                   >
                     <Eye className="w-3.5 h-3.5" /> 1. Bản xem thử học sinh
                   </button>
                   <button
                     id="tab-source"
                     onClick={() => setActiveTab('html-code')}
-                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'html-code' ? 'bg-white text-indigo-800 shadow-sm cursor-pointer' : 'text-slate-500 hover:text-indigo-800 cursor-pointer'}`}
+                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'html-code' ? 'bg-white text-indigo-800 shadow-sm cursor-pointer active-tab-btn' : 'text-slate-500 hover:text-indigo-800 cursor-pointer'}`}
                   >
                     <FileCode className="w-3.5 h-3.5" /> 2. Nhận mã HTML xuất bản
                   </button>
@@ -6045,87 +6141,87 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                   }`}>
                     <button
                       onClick={() => setPreviewTab('intro')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewTab === 'intro'
-                          ? themeColorsSim[appTheme].primary
+                          ? themeColorsSim[appTheme].primary + ' active-tab-btn'
                           : appBackground === 'neon'
                             ? 'bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      📌 Giới thiệu & Mục tiêu
+                      <BookMarked className="w-3.5 h-3.5" /> Giới thiệu & Mục tiêu
                     </button>
                     <button
                       onClick={() => setPreviewTab('warmup')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewTab === 'warmup'
-                          ? themeColorsSim[appTheme].primary
+                          ? themeColorsSim[appTheme].primary + ' active-tab-btn'
                           : appBackground === 'neon'
                             ? 'bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      ⚡ Khởi động
+                      <Lightbulb className="w-3.5 h-3.5" /> Khởi động
                     </button>
                     <button
                       onClick={() => setPreviewTab('sections')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewTab === 'sections'
-                          ? themeColorsSim[appTheme].primary
+                          ? themeColorsSim[appTheme].primary + ' active-tab-btn'
                           : appBackground === 'neon'
                             ? 'bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      📖 Bài đọc ({previewSectionIdx + 1}/{generatedLesson.sections.length})
+                      <BookOpen className="w-3.5 h-3.5" /> Bài đọc ({previewSectionIdx + 1}/{generatedLesson.sections.length})
                     </button>
                     <button
                       onClick={() => setPreviewTab('flashcards')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewTab === 'flashcards'
-                          ? themeColorsSim[appTheme].primary
+                          ? themeColorsSim[appTheme].primary + ' active-tab-btn'
                           : appBackground === 'neon'
                             ? 'bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      🎴 Thẻ thuật ngữ
+                      <Layers className="w-3.5 h-3.5" /> Thẻ thuật ngữ
                     </button>
                     <button
                       onClick={() => setPreviewTab('quiz')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewTab === 'quiz'
-                          ? themeColorsSim[appTheme].primary
+                          ? themeColorsSim[appTheme].primary + ' active-tab-btn'
                           : appBackground === 'neon'
                             ? 'bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      📝 Câu hỏi Quiz
+                      <HelpCircle className="w-3.5 h-3.5" /> Câu hỏi Quiz
                     </button>
                     <button
                       onClick={() => setPreviewTab('casestudy')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewTab === 'casestudy'
-                          ? themeColorsSim[appTheme].primary
+                          ? themeColorsSim[appTheme].primary + ' active-tab-btn'
                           : appBackground === 'neon'
                             ? 'bg-slate-900 border border-slate-850 text-slate-400 hover:bg-slate-800 hover:text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      💼 Case Study
+                      <Award className="w-3.5 h-3.5" /> Case Study
                     </button>
                     <button
                       onClick={() => setPreviewTab('reflection')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                         previewTab === 'reflection'
-                          ? themeColorsSim[appTheme].primary
+                          ? themeColorsSim[appTheme].primary + ' active-tab-btn'
                           : appBackground === 'neon'
                             ? 'bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      ✍️ Bản Thu Hoạch
+                      <PenTool className="w-3.5 h-3.5" /> Bản Thu Hoạch
                     </button>
                   </div>
 
@@ -6197,7 +6293,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
                   {/* CONTENT SECTIONS VIEW */}
                   {previewTab === 'sections' && (
-                    <div className="space-y-5">
+                    <div id="interactive-content-container" className="space-y-5">
                       {/* 2-in-1 Switcher Header */}
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-sm">
                         <div className="space-y-0.5">

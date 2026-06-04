@@ -19,3 +19,19 @@
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
+
+/* Icon styles based on request */
+svg.lucide {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.3s ease;
+}
+
+/* Glow effect for active tabs/buttons */
+.active-tab-btn svg.lucide,
+.active-glow svg.lucide {
+  filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
+  stroke-width: 2;
+}

@@ -274,8 +274,18 @@ async function startServer() {
   };
 
   // Helper to run content generation with model fallback for restricted/free-tier keys
-  const robustGenerateContent = async (ai: any, params: any) => {
-    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest"];
+  const robustGenerateContent = async (ai: any, params: any, customModel?: string) => {
+    const modelsToTry: string[] = [];
+    if (customModel && customModel.trim()) {
+      modelsToTry.push(customModel.trim());
+    }
+    const standardFallbackModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash-latest"];
+    for (const m of standardFallbackModels) {
+      if (!modelsToTry.includes(m)) {
+        modelsToTry.push(m);
+      }
+    }
+    
     let lastError: any = null;
     
     for (const modelName of modelsToTry) {
@@ -291,8 +301,6 @@ async function startServer() {
         lastError = err;
         const errMsg = err?.message || String(err);
         console.warn(`[robustGenerateContent] Model ${modelName} failed. Error:`, errMsg);
-        
-        // If it's a quota or connection error or explicitly disallowed, continue to try standard models
       }
     }
     throw lastError;
@@ -301,7 +309,7 @@ async function startServer() {
   // API Route to analyze uploaded files and extract lesson general configuration
   app.post("/api/analyze-metadata", async (req, res) => {
     try {
-      const { file } = req.body;
+      const { file, model } = req.body;
 
       if (!file || !file.data || !file.mimeType) {
         return res.status(400).json({ error: "Thiếu dữ liệu tệp tin để phân tích" });
@@ -391,7 +399,7 @@ Hãy phản hồi CHÍNH XÁC một cấu trúc JSON sau đây phù hợp nhất
             required: ["title", "subject", "level", "duration", "objectives", "sections"]
           }
         }
-      });
+      }, model);
 
       const meta = parseRobustJson(response.text || "{}");
       res.json(meta);
@@ -421,7 +429,7 @@ Hãy phản hồi CHÍNH XÁC một cấu trúc JSON sau đây phù hợp nhất
   // API Route to generate image prompt based on slide content using Gemini
   app.post("/api/generate-image-prompt", async (req, res) => {
     try {
-      const { slideTitle, slideContent } = req.body;
+      const { slideTitle, slideContent, model } = req.body;
       if (!slideTitle) {
         return res.status(400).json({ error: "Thiếu tiêu đề slide để tạo prompt" });
       }
@@ -451,7 +459,7 @@ Hướng dẫn phối cảnh mỹ thuật:
         config: {
           temperature: 0.7,
         }
-      });
+      }, model);
 
       const prompt = (response.text || "").replace(/^["'`]|["'`]$/g, "").trim();
       res.json({ prompt });
@@ -464,7 +472,7 @@ Hướng dẫn phối cảnh mỹ thuật:
   // API Route
   app.post("/api/generate-lesson", async (req, res) => {
     try {
-      const { title, subject, level, duration, content, objectives, interactions, file, selectedSection } = req.body;
+      const { title, subject, level, duration, content, objectives, interactions, file, selectedSection, model } = req.body;
 
       if (!content && (!file || !file.data)) {
         return res.status(400).json({ error: "Vui lòng nhập nội dung bài giảng viết tay hoặc tải tệp tài liệu lên (PDF, PPT, Word...)." });
@@ -707,7 +715,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
             ]
           }
         }
-      });
+      }, model);
 
       const lessonJson = parseRobustJson(response.text || "{}");
       res.json(lessonJson);

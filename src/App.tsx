@@ -104,6 +104,15 @@ export default function App() {
     localStorage.setItem("GEMINI_API_KEY", customApiKey);
   }, [customApiKey]);
 
+  // Selected Gemini model from user (persists in localStorage)
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    return localStorage.getItem("GEMINI_SELECTED_MODEL") || "gemini-3.5-flash";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("GEMINI_SELECTED_MODEL", selectedModel);
+  }, [selectedModel]);
+
   // helper definitions for simulated preview styling
   const themeColorsSim = {
     emerald: {
@@ -250,7 +259,8 @@ export default function App() {
           ...(customApiKey ? { "x-gemini-key": customApiKey } : {})
         },
         body: JSON.stringify({
-          file: { mimeType, data: base64Data }
+          file: { mimeType, data: base64Data },
+          model: selectedModel
         })
       });
 
@@ -971,7 +981,8 @@ export default function App() {
         },
         body: JSON.stringify({
           slideTitle: slide.title,
-          slideContent: slide.content
+          slideContent: slide.content,
+          model: selectedModel
         })
       });
 
@@ -1026,7 +1037,7 @@ export default function App() {
           "Content-Type": "application/json",
           ...(customApiKey ? { "x-gemini-key": customApiKey } : {})
         },
-        body: JSON.stringify({
+         body: JSON.stringify({
           title,
           subject,
           level,
@@ -1035,7 +1046,8 @@ export default function App() {
           objectives,
           interactions: getSelectedInteractions(),
           file: uploadedFile ? { mimeType: uploadedFile.mimeType, data: uploadedFile.data } : undefined,
-          selectedSection: uploadedFile ? selectedSection : undefined
+          selectedSection: uploadedFile ? selectedSection : undefined,
+          model: selectedModel
         })
       });
 
@@ -4145,36 +4157,61 @@ export default function App() {
 
           {editorStep === 'generate' || !generatedLesson ? (
             <>
-              {/* API Key Configuration Card for Vercel & Static environments */}
-              <div className="bg-[#f0f9ff]/80 border border-[#bfe2fd] rounded-2xl p-4 shadow-sm space-y-2 animate-fade-in">
-                <div className="flex items-center justify-between">
+              {/* API Key & Gemini Model Configuration Card */}
+              <div className="bg-[#f0f9ff]/80 border border-[#bfe2fd] rounded-2xl p-4 shadow-sm space-y-3 animate-fade-in text-blue-900">
+                <div className="flex items-center justify-between border-b border-blue-100 pb-1.5">
                   <label className="text-[10px] font-black text-blue-900 uppercase tracking-widest flex items-center gap-1.5">
-                    🔑 GEMINI API KEY (TÙY CHỌN)
+                    ⚙️ Cấu Hình API & Mô Hình Gemini
                   </label>
-                  <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">
-                    Hỗ trợ Vercel
+                  <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-black">
+                    Cấu hình hệ thống
                   </span>
                 </div>
-                <p className="text-[11px] text-blue-700 leading-relaxed font-semibold">
-                  Nếu chạy trên Vercel hoặc môi trường tĩnh, bạn có thể dán API Key Gemini của mình vào đây. Khóa này được lưu an toàn cục bộ trong trình duyệt của riêng bạn (localStorage).
-                </p>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={customApiKey || ""}
-                    onChange={(e) => setCustomApiKey(e.target.value)}
-                    placeholder="Nhập khóa API của bạn (ví dụ: AIzaSy...)"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-blue-200 bg-white placeholder-slate-400 focus:outline-0 focus:ring-1 focus:ring-blue-400 transition-all text-blue-900 pr-10 shadow-3xs"
-                  />
-                  {customApiKey && (
-                    <button
-                      type="button"
-                      onClick={() => setCustomApiKey("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
-                    >
-                      Xóa
-                    </button>
-                  )}
+
+                {/* Model selection dropdown */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    🤖 CHỌN MÔ HÌNH DỰ TRÚ:
+                  </label>
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-blue-200 bg-white focus:outline-0 focus:ring-1 focus:ring-blue-400 transition-all text-blue-955 shadow-3xs cursor-pointer"
+                  >
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash (Phát hành mới nhất / Khuyên dùng)</option>
+                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Phản hồi cực nhanh / Tiết kiệm)</option>
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Phân tích cấp cao / Cần API Key trả phí)</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Phiên bản 2.5)</option>
+                    <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Tương thích tốt nhất với API tự cấp / Chìa khóa cũ)</option>
+                  </select>
+                </div>
+
+                {/* API Key input line */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    🔑 GEMINI API KEY (CHỈ CẦN NẾU CHẠY TRÊN VERCEL):
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={customApiKey || ""}
+                      onChange={(e) => setCustomApiKey(e.target.value)}
+                      placeholder="Nhập khóa API của bạn (ví dụ: AIzaSy...)"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-blue-200 bg-white placeholder-slate-400 focus:outline-0 focus:ring-1 focus:ring-blue-400 transition-all text-blue-900 pr-10 shadow-3xs"
+                    />
+                    {customApiKey && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomApiKey("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                      >
+                        Xóa
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-blue-700 leading-relaxed font-semibold">
+                    * Nếu khóa API cá nhân của bạn cũ hoặc gặp lỗi không thể đọc/không hiểu mô hình, vui lòng chuyển tùy chọn trên thành <strong>Gemini 1.5 Flash</strong> để duy trì tính tương thích tối đa. Khóa được lưu cục bộ an toàn trong bộ nhớ trình duyệt của bạn (localStorage).
+                  </p>
                 </div>
               </div>
 

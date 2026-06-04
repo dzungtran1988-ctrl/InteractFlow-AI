@@ -3,16 +3,29 @@ import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
 import AdmZip from "adm-zip";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const pdf = require("pdf-parse");
 
 dotenv.config();
 
 async function extractTextFromPdf(base64Data: string): Promise<string> {
   try {
     const buffer = Buffer.from(base64Data, "base64");
-    return extractPlainTextsFromPdfBinary(buffer);
+    const parsed = await pdf(buffer);
+    const text = parsed.text || "";
+    console.log(`[extractTextFromPdf] Extracted ${text.length} characters successfully using pdf-parse.`);
+    return text;
   } catch (err) {
-    console.error("[extractTextFromPdf] Error extracting PDF text:", err);
-    return "";
+    console.error("[extractTextFromPdf] Error extracting PDF text via pdf-parse:", err);
+    try {
+      const buffer = Buffer.from(base64Data, "base64");
+      return extractPlainTextsFromPdfBinary(buffer);
+    } catch (fallbackErr) {
+      console.error("[extractTextFromPdf] Fallback parser also failed:", fallbackErr);
+      return "";
+    }
   }
 }
 

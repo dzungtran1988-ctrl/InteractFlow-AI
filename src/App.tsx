@@ -26,7 +26,8 @@ import {
   FileText,
   X,
   Search,
-  Zap
+  Zap,
+  Trash2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -232,6 +233,9 @@ export default function App() {
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [quickLoadTab, setQuickLoadTab] = useState<'upload' | 'samples'>('upload');
+
+  const [aiExpertTopic, setAiExpertTopic] = useState("");
+  const [isGeneratingExpertTopic, setIsGeneratingExpertTopic] = useState(false);
 
   const getMimeType = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase();
@@ -1200,6 +1204,45 @@ export default function App() {
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
+  };
+  
+  const handleGenerateExpertTopic = async () => {
+    if (!aiExpertTopic.trim()) {
+      alert("Vui lòng nhập chủ đề bạn muốn AI tạo nội dung.");
+      return;
+    }
+    setIsGeneratingExpertTopic(true);
+    setGenerationError(null);
+    try {
+      const response = await fetch("/api/generate-expert-content", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(customApiKey ? { "x-gemini-key": customApiKey } : {})
+        },
+        body: JSON.stringify({
+          topic: aiExpertTopic,
+          model: selectedModel
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Có lỗi xảy ra khi tạo nội dung chuyên gia");
+      }
+
+      const data = await response.json();
+      if (data.content) {
+        setContent(data.content);
+        setAiExpertTopic(""); // optionally clear
+        alert("Thành công! Nội dung đã được AI soạn và điền vào ô bên dưới.");
+      }
+    } catch (error: any) {
+      console.error(error);
+      setGenerationError("Không thể tạo nội dung: " + error.message);
+    } finally {
+      setIsGeneratingExpertTopic(false);
+    }
   };
 
   const handleGenerateImagePrompt = async (slideIdx: number) => {
@@ -4340,13 +4383,15 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         wrapperHtml = '<div class="space-y-4">' + mainContentHtml + '</div>';
       }
 
-      return '<div class="core-slide-layout text-left w-full space-y-4">' +
-        wrapperHtml +
+      const takeawayHtml = detectedTakeaway ? 
         '<section class="core-slide-takeaway" style="' + takeawayStyle + '">' +
         '<span class="takeaway-icon"><i data-lucide="gem" class="w-4 h-4 text-white"></i></span>' +
         '<div style="color: #fff;"><strong style="color: #fcd34d !important; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 0.1rem;">Chốt ý giảng viên:</strong>' +
         '<p style="font-size: 13px !important; font-weight: 700; line-height: 1.5; margin: 0 !important; color: #fff !important;">' + inlineCoreMarkdown(detectedTakeaway) + '</p></div>' +
-        '</section></div>';
+        '</section>' : '';
+
+      return '<div class="core-slide-layout text-left w-full space-y-4">' +
+        wrapperHtml + takeawayHtml + '</div>';
     }
 
     window.onload = function() {
@@ -4814,7 +4859,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                         : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> 2. Giáo trình mẫu chuẩn
+                    <Sparkles className="w-3.5 h-3.5" /> 2. AI Tự động soạn
                   </button>
                 </div>
 
@@ -5009,18 +5054,42 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
-                    {PRESET_SAMPLES.map((preset, i) => (
-                      <button
-                        key={i}
-                        id={`btn-preset-${i}`}
-                        onClick={() => handleLoadPreset(preset)}
-                        className="w-full text-left p-3 bg-white hover:bg-slate-100 hover:border-slate-200 border border-slate-200 rounded-xl transition-all text-xs font-semibold text-slate-700 flex justify-between items-center group cursor-pointer animate-fade-in"
-                      >
-                        <span className="truncate">{preset.title}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
-                      </button>
-                    ))}
+                  <div className="bg-white border-2 border-emerald-100 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 relative overflow-hidden animate-fade-in group">
+                    <div className="absolute -right-16 -top-16 opacity-30 group-hover:opacity-60 transition-opacity">
+                      <Sparkles className="w-48 h-48 text-emerald-200" />
+                    </div>
+                    <label id="lbl-expert-topic" className="block text-xs font-bold text-slate-700 relative z-10 flex items-center gap-1.5">
+                      Nhập chủ đề bạn muốn dạy:
+                    </label>
+                    <textarea
+                      value={aiExpertTopic}
+                      onChange={(e) => setAiExpertTopic(e.target.value)}
+                      placeholder="Ví dụ: Định luật Newton, Phân tích bài thơ Sóng, Lịch sử nhà Nguyễn..."
+                      rows={2}
+                      className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white/80 backdrop-blur-sm shadow-inner transition-all relative z-10"
+                    />
+                    
+                    <button
+                      type="button"
+                      onClick={handleGenerateExpertTopic}
+                      disabled={isGeneratingExpertTopic || !aiExpertTopic.trim()}
+                      className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm relative z-10 cursor-pointer"
+                    >
+                      {isGeneratingExpertTopic ? (
+                         <span className="flex items-center gap-2">
+                           <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                           AI đang thu thập dữ liệu & viết bài...
+                         </span>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Sinh tài liệu từ cơ sở dữ liệu học thuật
+                        </>
+                      )}
+                    </button>
+                    <p className="text-[10px] text-slate-500 font-medium pt-1 relative z-10 leading-relaxed text-center">
+                      AI sẽ tự động tổng hợp kiến thức từ các chương trình học thuật uy tín và điền vào ô "Nội dung bài học" bên dưới.
+                    </p>
                   </div>
                 )}
               </div>

@@ -257,6 +257,42 @@ Hướng dẫn phối cảnh mỹ thuật:
     }
   });
 
+  app.post("/api/generate-expert-content", async (req, res) => {
+    try {
+      const { topic, model } = req.body;
+      if (!topic) return res.status(400).json({ error: "Missing topic" });
+
+      const customApiKey = req.headers["x-gemini-key"] as string | undefined;
+      const effectiveApiKey = customApiKey || process.env.GEMINI_API_KEY;
+      if (!effectiveApiKey) {
+        return res.status(500).json({ error: "API key is missing" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+
+      const promptStr = `Dựa vào chủ đề sau, hãy tạo một nội dung bài học chi tiết và bao quát, thu thập kiến thức chuẩn xác từ các chương trình giảng dạy trong nước và quốc tế. Trình bày bài viết ở dạng văn bản thô (Plain text hoặc Markdown phân mục rõ ràng), dài khoảng 800 - 1500 từ.
+
+Chủ đề: ${topic}
+
+Yêu cầu nội dung:
+- Bao gồm định lượng khái niệm, bối cảnh.
+- Cấu trúc các bước hoặc quy trình chuẩn (nếu có).
+- Có ví dụ/case-study chuyên sâu minh chứng.
+- Tóm tắt ý chính của từng phân đoạn rõ ràng.`;
+
+      const response = await ai.models.generateContent({
+        model: model || "gemini-2.5-flash",
+        contents: promptStr,
+      });
+
+      const generatedContent = response.text || "";
+      res.json({ content: generatedContent });
+    } catch (error: any) {
+      console.error("Generate content Error:", error);
+      res.status(500).json({ error: error.message || "Không thể sinh nội dung từ AI." });
+    }
+  });
+
   // API Route
   app.post("/api/generate-lesson", async (req, res) => {
     try {

@@ -6426,12 +6426,12 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                                       'from-white via-rose-50/20 to-slate-50/40 border-slate-100 text-slate-800 shadow-slate-100',
                                     ][previewSectionIdx % 6]
                                   : [
-                                      'from-slate-950 via-slate-900 to-sky-950/40 border-slate-800 text-slate-105 shadow-slate-950/40',
-                                      'from-slate-950 via-slate-900 to-teal-950/40 border-slate-800 text-slate-105 shadow-slate-950/40',
-                                      'from-slate-950 via-slate-900 to-purple-950/40 border-slate-800 text-slate-105 shadow-slate-950/40',
-                                      'from-slate-950 via-slate-900 to-indigo-950/40 border-slate-800 text-slate-105 shadow-slate-950/40',
-                                      'from-slate-950 via-slate-900 to-emerald-900/40 border-slate-800 text-slate-105 shadow-slate-950/40',
-                                      'from-slate-950 via-slate-900 to-rose-950/40 border-slate-800 text-slate-105 shadow-slate-950/40',
+                                      'from-slate-950 via-slate-900 to-sky-950/40 border-slate-800 text-slate-100 shadow-slate-950/40',
+                                      'from-slate-950 via-slate-900 to-teal-950/40 border-slate-800 text-slate-100 shadow-slate-950/40',
+                                      'from-slate-950 via-slate-900 to-purple-950/40 border-slate-800 text-slate-100 shadow-slate-950/40',
+                                      'from-slate-950 via-slate-900 to-indigo-950/40 border-slate-800 text-slate-100 shadow-slate-950/40',
+                                      'from-slate-950 via-slate-900 to-emerald-900/40 border-slate-800 text-slate-100 shadow-slate-950/40',
+                                      'from-slate-950 via-slate-900 to-rose-950/40 border-slate-800 text-slate-100 shadow-slate-950/40',
                                     ][previewSectionIdx % 6]
                               }`}
                             >

@@ -38,12 +38,12 @@ import { PRESET_SAMPLES, PresetSample } from './constants/presets';
 
 export default function App() {
   // Input settings states
-  const [title, setTitle] = useState(PRESET_SAMPLES[0].title);
-  const [subject, setSubject] = useState(PRESET_SAMPLES[0].subject);
-  const [level, setLevel] = useState(PRESET_SAMPLES[0].level);
-  const [duration, setDuration] = useState(PRESET_SAMPLES[0].duration);
-  const [objectives, setObjectives] = useState(PRESET_SAMPLES[0].objectives);
-  const [content, setContent] = useState(PRESET_SAMPLES[0].content);
+  const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
+  const [level, setLevel] = useState("");
+  const [duration, setDuration] = useState("");
+  const [objectives, setObjectives] = useState("");
+  const [content, setContent] = useState("");
   
   // Interactions Selection States
   const [enableWarmUp, setEnableWarmUp] = useState(true);
@@ -5119,7 +5119,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       id="ipt-title"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Ví dụ: Vòng lặp For trong Java"
+                      placeholder="Ví dụ: Khái niệm Lạm phát & Thất nghiệp..."
                       className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 p-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
                     />
                   </div>
@@ -5131,7 +5131,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       id="ipt-subject"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      placeholder="Ví dụ: Lập trình OOP"
+                      placeholder="Ví dụ: Kinh tế học vĩ mô"
                       className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 p-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
                     />
                   </div>
@@ -5144,7 +5144,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       onChange={(e) => setLevel(e.target.value)}
                       className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 p-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
                     >
-                      <option>Sinh viên Đại học năm 1</option>
+                      <option value="" disabled>Chọn trình độ...</option>
+                      <option>Sinh viên Đại học năm 1 - 2</option>
                       <option>Sinh viên Đại học năm 1 - 2</option>
                       <option>Sinh viên Đại học chuyên ngành (Năm 3 - 4)</option>
                       <option>Học viên Cao học / Nghiên cứu sinh</option>
@@ -5159,6 +5160,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       onChange={(e) => setDuration(e.target.value)}
                       className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 p-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
                     >
+                      <option value="" disabled>Chọn thời lượng...</option>
                       <option>30 phút tự học</option>
                       <option>45 phút</option>
                       <option>60 phút</option>
@@ -5174,7 +5176,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                     id="ipt-objectives"
                     value={objectives}
                     onChange={(e) => setObjectives(e.target.value)}
-                    placeholder="Nhập thủ công hoặc để trống để Gemini tự chuẩn hóa theo chuẩn quốc tế..."
+                    placeholder="Ví dụ: Định nghĩa được lạm phát, thất nghiệp và các chỉ số đo lường..."
                     rows={3}
                     className="w-full text-xs bg-slate-50 border border-slate-200 p-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white"
                   />

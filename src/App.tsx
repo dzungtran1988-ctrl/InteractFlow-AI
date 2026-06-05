@@ -788,10 +788,6 @@ export default function App() {
       const italicMatch = contentText.match(/\*(?!\*)([^*]{15,220})\*(?!\*)/);
       if (italicMatch) {
         detectedTakeaway = italicMatch[1].trim();
-      } else if (introParagraphs.length > 0 && hero === "") {
-        detectedTakeaway = introParagraphs[introParagraphs.length - 1];
-      } else {
-        detectedTakeaway = 'Luôn chủ động tư duy phản biện và liên hệ thực tế bối cảnh công học tập để rèn luyện sâu kiến thức này.';
       }
     }
 
@@ -3374,9 +3370,9 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
       if (changed) {
         setTimeout(() => {
-          const el = isSlideMode ? document.getElementById('slide-presentation-container') : document.getElementById('doc-reading-container');
+          const el = isSlideMode ? document.getElementById('slide-canvas') : document.getElementById('doc-reading-container');
           if (el) {
-            const y = el.getBoundingClientRect().top + window.scrollY - 80;
+            const y = el.getBoundingClientRect().top + window.scrollY - 85;
             window.scrollTo({ top: y, behavior: 'smooth' });
           }
         }, 50);
@@ -4166,10 +4162,6 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         const italicMatch = contentText.match(/\\\\*(?!\\\\*)([^*]{15,220})\\\\*(?!\\\\*)/);
         if (italicMatch) {
           detectedTakeaway = italicMatch[1].trim();
-        } else if (introParagraphs.length > 0 && hero === "") {
-          detectedTakeaway = introParagraphs[introParagraphs.length - 1];
-        } else {
-          detectedTakeaway = 'Luôn chủ động tư duy phản biện và liên hệ thực tế bối cảnh công học tập để rèn luyện sâu kiến thức này.';
         }
       }
 
@@ -4415,9 +4407,9 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
   // Helper to scroll to the top of the slide container when navigating
   const scrollToPreviewSlide = () => {
     setTimeout(() => {
-      const container = document.getElementById('interactive-content-container');
+      const container = document.getElementById('preview-slide-view') || document.getElementById('interactive-content-container');
       if (container) {
-        const y = container.getBoundingClientRect().top + window.scrollY - 80;
+        const y = container.getBoundingClientRect().top + window.scrollY - 85;
         window.scrollTo({ top: y, behavior: 'smooth' });
       }
     }, 50);
@@ -6347,7 +6339,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
                       {slideMode ? (
                         /* PRESENTATION SLIDE MODE (BEAUTIFUL HIGH-FIDELITY BENTO GRID CANVAS) */
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch animate-fade-in">
+                        <div id="preview-slide-view" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch animate-fade-in">
                           {/* Left Column: Slide Theory card & tight-coupled navigation controls */}
                           <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
                             {/* Slide Canvas Wrapper with standard aspect-ratio styling */}

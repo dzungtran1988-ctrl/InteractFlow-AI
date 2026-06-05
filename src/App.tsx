@@ -4809,7 +4809,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                 {/* API Key input line */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    🔑 GEMINI API KEY (CHỈ CẦN NẾU CHẠY TRÊN VERCEL):
+                    🔑 GEMINI API KEY:
                   </label>
                   <div className="relative">
                     <input
@@ -5379,7 +5379,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                   {isGenerating ? (
                     <>
                       <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                      Đang khởi tạo bài học với Gemini 3.5...
+                      Đang khởi tạo bài học...
                     </>
                   ) : (
                     <>

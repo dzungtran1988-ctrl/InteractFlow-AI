@@ -7098,6 +7098,9 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       <footer className="bg-white border-t border-slate-200 mt-12 py-6 text-center text-slate-500 text-xs shadow-inner">
         <p className="font-semibold text-slate-600">Học viện sư phạm số cùng InteractFlow AI v2.0</p>
         <p className="mt-1 text-[11px] text-slate-400">Giáo án Active Learning trực quan - tương tác - giải pháp đột phá. Xây dựng phù hợp với bối cảnh giáo dục thời đại số 4.0.</p>
+        <p className="mt-2 font-medium">
+          Made by <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500 drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] animate-pulse">Kinh tế số TLU</span>
+        </p>
       </footer>
 
       {/* Dynamic Statistics Dashboard Modal popup */}

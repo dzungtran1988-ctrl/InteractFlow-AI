@@ -286,9 +286,12 @@ export default function App() {
     contents: any[],
     responseSchema?: any
   ): Promise<any> => {
-    const chosenModel = model || "gemini-2.5-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${apiKey.trim()}`;
-    
+    let chosenModel = model || "gemini-2.5-flash";
+    // models to try in case of fallback
+    const modelsToTry = [chosenModel];
+    if (chosenModel !== "gemini-2.5-flash") modelsToTry.push("gemini-2.5-flash");
+    if (chosenModel !== "gemini-1.5-flash") modelsToTry.push("gemini-1.5-flash");
+
     const body: any = {
       contents: contents,
       generationConfig: {
@@ -307,33 +310,57 @@ export default function App() {
       };
     }
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
+    let lastErrorMsg = "Yêu cầu API thất bại";
 
-    if (!res.ok) {
-      const errText = await res.text();
-      let msg = "Yêu cầu API thất bại";
-      try {
-        const parsed = JSON.parse(errText);
-        msg = parsed.error?.message || msg;
-      } catch {
-        msg = errText || msg;
+    for (const m of modelsToTry) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey.trim()}`;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            let msg = "Yêu cầu API thất bại";
+            try {
+              const parsed = JSON.parse(errText);
+              msg = parsed.error?.message || msg;
+            } catch {
+              msg = errText || msg;
+            }
+            
+            if (res.status === 503 || msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand") || res.status === 429) {
+              lastErrorMsg = msg;
+              await new Promise(r => setTimeout(r, attempt * 2000));
+              continue; // retry
+            }
+            throw new Error(msg);
+          }
+
+          const data = await res.json();
+          const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!txt) {
+            throw new Error("Không nhận được phản hồi dữ liệu từ mô hình AI.");
+          }
+          
+          return parseRobustJsonClient(txt);
+        } catch (err: any) {
+          lastErrorMsg = err.message || String(err);
+          // if it's transient, the inner loop would have continued.
+          // Since it threw, it's not transient, or we exhausted retries.
+          // Break attempt loop, try next model.
+          break;
+        }
       }
-      throw new Error(msg);
     }
 
-    const data = await res.json();
-    const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!txt) {
-      throw new Error("Không nhận được phản hồi dữ liệu từ mô hình AI.");
-    }
-    
-    return parseRobustJsonClient(txt);
+    throw new Error(lastErrorMsg);
   };
 
   const fetchAndConfigureMetadata = async (mimeType: string, base64Data: string, filename: string) => {
@@ -930,11 +957,11 @@ export default function App() {
                   </div>
                   {pt.title && (
                     <strong className={`font-black text-xs sm:text-[13px] tracking-tight block ${themeClasses.textAccent}`}>
-                      {pt.title}
+                      {inlineCoreMarkdown(pt.title)}
                     </strong>
                   )}
                   <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-650' : 'text-slate-300'}`}>
-                    {pt.body}
+                    {inlineCoreMarkdown(pt.body)}
                   </span>
                 </article>
               </div>
@@ -961,11 +988,11 @@ export default function App() {
                       {idx === 0 ? "✓" : "✗"}
                     </span>
                     <strong className={`font-black text-xs sm:text-[13px] uppercase tracking-wider block ${contrText}`}>
-                      {pt.title || (idx === 0 ? "Khía cạnh tích cực" : "Khía cạnh thận trọng")}
+                      {pt.title ? inlineCoreMarkdown(pt.title) : (idx === 0 ? "Khía cạnh tích cực" : "Khía cạnh thận trọng")}
                     </strong>
                   </div>
                   <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-650' : 'text-slate-300'}`}>
-                    {pt.body}
+                    {inlineCoreMarkdown(pt.body)}
                   </span>
                 </article>
               );
@@ -986,10 +1013,10 @@ export default function App() {
                   <div>
                     {pt.title && (
                       <strong className="font-extrabold tracking-wide block mb-0.5 text-[13px]">
-                        {pt.title}
+                        {inlineCoreMarkdown(pt.title)}
                       </strong>
                     )}
-                    <span className="text-xs font-semibold leading-relaxed opacity-90">{pt.body}</span>
+                    <span className="text-xs font-semibold leading-relaxed opacity-90">{inlineCoreMarkdown(pt.body)}</span>
                   </div>
                 </li>
               ))}
@@ -1005,11 +1032,11 @@ export default function App() {
               <article key={idx} className={`p-5 rounded-2xl border flex flex-col justify-start gap-2.5 transition-all shadow-sm ${themeClasses.pointCard}`}>
                 {pt.title && (
                   <strong className={`font-black text-xs sm:text-[13px] tracking-tight block border-b pb-1.5 ${themeClasses.textAccent} flex items-center gap-1.5`}>
-                    <Lightbulb className="w-3.5 h-3.5" /> {pt.title}
+                    <Lightbulb className="w-3.5 h-3.5" /> {inlineCoreMarkdown(pt.title)}
                   </strong>
                 )}
                 <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-655' : 'text-slate-300'}`}>
-                  {pt.body}
+                  {inlineCoreMarkdown(pt.body)}
                 </span>
               </article>
             ))}
@@ -1044,12 +1071,12 @@ export default function App() {
                     </span>
                     {pt.title && (
                       <strong className={`font-black text-xs sm:text-[14px] tracking-tight block ${themeClasses.textAccent}`}>
-                        {pt.title}
+                        {inlineCoreMarkdown(pt.title)}
                       </strong>
                     )}
                   </div>
                   <span className={`text-[12px] sm:text-[13px] font-medium leading-relaxed block ${slideTheme === 'light' ? 'text-slate-650' : 'text-slate-300'}`}>
-                    {pt.body}
+                    {inlineCoreMarkdown(pt.body)}
                   </span>
                 </div>
               </article>
@@ -4240,7 +4267,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       const pTitleStyle = pointTitleColor ? 'color: ' + pointTitleColor + ' !important;' : "";
 
       const inlineCoreMarkdown = (val) => {
-        const parts = val.split(/\\\\*\\\\*([^*]+)\\\\*\\\\*/g);
+        const parts = val.split(/\\*\\*([^*]+)\\*\\*/g);
         return parts.map((chunk, i) => {
           if (i % 2 === 1) {
             return '<strong class="font-black px-1.5 py-0.5 rounded-md text-[var(--blue-700)] bg-[var(--ux-soft)]">' + chunk + '</strong>';
@@ -4261,8 +4288,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                 '<span class="point-index" style="' + pointIndexStyle + '; padding: 0.2rem 0.5rem; border-radius: 0.5rem; width: auto; height: auto; font-size: 8px; margin-bottom: 0;">BƯỚC ' + (idx + 1) + '</span>' +
                 (idx < points.length - 1 ? '<span class="hidden md:inline" style="color: #cbd5e1; font-weight: bold; font-size: 14px;">➔</span>' : '') +
               '</div>' +
-              (pt.title ? '<strong style="' + pTitleStyle + '; margin-top: 0.35rem;">' + pt.title + '</strong>' : '') +
-              '<span>' + pt.body + '</span>' +
+              (pt.title ? '<strong style="' + pTitleStyle + '; margin-top: 0.35rem;">' + inlineCoreMarkdown(pt.title) + '</strong>' : '') +
+              '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</article></div>';
           });
           html += '</section>';
@@ -4285,9 +4312,9 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
             html += '<article class="core-slide-point flex flex-col gap-2 max-w-none shadow-sm" style="background: ' + cardBg + ' !important; border-color: ' + cardBorder + ' !important;">' +
               '<div class="flex items-center gap-2">' +
                 '<span class="point-index" style="background: ' + idxBg + ' !important; margin-bottom: 0;">' + (isFirst ? "✓" : "✗") + '</span>' +
-                '<strong style="color: ' + tColor + ' !important; text-transform: uppercase; font-size: 11px; margin-bottom: 0; letter-spacing: 0.05em;">' + (pt.title || (isFirst ? "Mặt tích cực" : "Mặt rủi ro / lưu ý")) + '</strong>' +
+                '<strong style="color: ' + tColor + ' !important; text-transform: uppercase; font-size: 11px; margin-bottom: 0; letter-spacing: 0.05em;">' + (pt.title ? inlineCoreMarkdown(pt.title) : (isFirst ? "Mặt tích cực" : "Mặt rủi ro / lưu ý")) + '</strong>' +
               '</div>' +
-              '<span>' + pt.body + '</span>' +
+              '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</article>';
           });
           html += '</section>';
@@ -4301,8 +4328,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
             html += '<li style="display: flex; align-items: flex-start; gap: 0.75rem;">' +
               '<span class="point-index" style="' + pointIndexStyle + '; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 10px; flex-shrink: 0; margin-top: 0.15rem;">' + (idx + 1) + '</span>' +
               '<div>' +
-              (pt.title ? '<strong style="display: block; font-size: 13px; font-weight: 800; margin-bottom: 0.15rem;">' + pt.title + '</strong>' : '') +
-              '<span style="font-size: 12px; font-weight: 600; opacity: 0.9;">' + pt.body + '</span>' +
+              (pt.title ? '<strong style="display: block; font-size: 13px; font-weight: 800; margin-bottom: 0.15rem;">' + inlineCoreMarkdown(pt.title) + '</strong>' : '') +
+              '<span style="font-size: 12px; font-weight: 600; opacity: 0.9;">' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</div></li>';
           });
           html += '</ul></section>';
@@ -4313,8 +4340,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           let html = '<section class="core-slide-twocolumn my-4">';
           points.forEach((pt) => {
             html += '<article class="core-slide-point flex flex-col justify-start gap-2 max-w-none shadow-sm">' +
-              (pt.title ? '<strong style="' + pTitleStyle + '; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 0.3rem;"><i data-lucide="lightbulb" class="inline w-3 h-3 mr-1 mb-0.5"></i> ' + pt.title + '</strong>' : '') +
-              '<span>' + pt.body + '</span>' +
+              (pt.title ? '<strong style="' + pTitleStyle + '; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 0.3rem;"><i data-lucide="lightbulb" class="inline w-3 h-3 mr-1 mb-0.5"></i> ' + inlineCoreMarkdown(pt.title) + '</strong>' : '') +
+              '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</article>';
           });
           html += '</section>';
@@ -4333,8 +4360,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
           html += '<article class="core-slide-point ' + spanClass + ' flex flex-col justify-start gap-2 max-w-none shadow-sm">' +
             '<span class="point-index" style="' + pointIndexStyle + '">' + String(idx + 1).padStart(2, '0') + '</span>' +
-            '<strong style="' + pTitleStyle + '">' + pt.title + '</strong>' +
-            '<span>' + pt.body + '</span>' +
+            '<strong style="' + pTitleStyle + '">' + inlineCoreMarkdown(pt.title || '') + '</strong>' +
+            '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
             '</article>';
         });
         html += '</section>';
@@ -5376,17 +5403,20 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                   id="btn-trigger"
                   disabled={isGenerating}
                   onClick={handleGenerateLesson}
-                  className={`w-full py-4 rounded-xl text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${isGenerating ? 'bg-slate-400 shadow-none' : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 -translate-y-0.5 active:translate-y-0 shadow-emerald-200'}`}
+                  className={`relative overflow-hidden w-full py-4 rounded-xl text-white font-extrabold text-[15px] shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer group ${isGenerating ? 'bg-slate-400 shadow-none' : 'bg-gradient-to-r from-blue-600 via-sky-500 to-teal-500 hover:shadow-[0_8px_25px_rgba(59,130,246,0.25)] hover:-translate-y-0.5 active:translate-y-0'}`}
                 >
+                  {!isGenerating && (
+                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                  )}
                   {isGenerating ? (
                     <>
-                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                      Đang khởi tạo bài học...
+                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin relative z-10"></span>
+                      <span className="relative z-10">Đang khởi tạo bài học...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                      Khởi Tạo Bài Học Tương Tác
+                      <Sparkles className="w-4 h-4 text-white animate-pulse relative z-10" />
+                      <span className="relative z-10 drop-shadow-sm tracking-wide">Khởi Tạo Bài Học Tương Tác</span>
                     </>
                   )}
                 </button>
@@ -6087,29 +6117,44 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           
           {/* EMPTY INTRODUCTORY STATE (Before lecturer generates first content) */}
           {!generatedLesson && !isGenerating && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center my-auto flex flex-col items-center justify-center space-y-6 h-full min-h-[450px]">
-              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-4xl text-emerald-600 animate-pulse">
-                📚
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-50/60 via-white to-sky-50/50 border-2 border-white pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md rounded-[2.5rem] p-8 sm:p-12 text-center my-auto flex flex-col items-center justify-center space-y-10 h-full min-h-[500px]">
+              {/* Decorative background elements */}
+              <div className="absolute top-0 right-0 -mr-20 -mt-20 w-72 h-72 rounded-full bg-blue-300/20 blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-teal-300/20 blur-3xl pointer-events-none"></div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none opacity-40"></div>
+
+              <div className="relative z-10 w-24 h-24 bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_10px_40px_rgba(59,130,246,0.15)] flex items-center justify-center border border-white/60">
+                <div className="absolute inset-0 rounded-3xl bg-blue-400/20 animate-ping opacity-20"></div>
+                <BookOpen className="w-10 h-10 text-blue-600" strokeWidth={1.5} />
               </div>
-              <div className="max-w-md space-y-2">
-                <h3 className="text-xl font-bold text-slate-800 font-serif">Sẵn sàng kiến tạo những bài giảng số rực rỡ!</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  Công cụ hỗ trợ các giảng viên, thầy cô đại học nhanh chóng biến các trang tài liệu Word, slide thô khan hiếm tương tác thành những trang học tập tương tác đầy kích thích bằng trí thông minh sư phạm của AI.
+              
+              <div className="relative z-10 max-w-2xl space-y-4">
+                <h3 className="text-2xl sm:text-[28px] font-extrabold text-slate-800 tracking-tight">
+                  Kiến tạo bài giảng số <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-500">tương tác đỉnh cao</span>
+                </h3>
+                <p className="text-base sm:text-[17px] text-slate-500 leading-relaxed max-w-xl mx-auto font-medium">
+                  Công cụ hỗ trợ giảng viên đại học hô biến tài liệu thô khan hiếm tương tác thành những module học tập sinh động nhờ trí thông minh sư phạm AI.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full bg-slate-50 p-4 rounded-xl border max-w-xl text-left">
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-emerald-700">1. Chọn mẫu thô</span>
-                  <p className="text-[10px] text-slate-500">Ấn nạp các bài mẫu có sẵn về Kinh tế học, lập trình Python hoặc Sư phạm.</p>
+              <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-4xl text-left mt-4">
+                {/* Bento Box 1 */}
+                <div className="bg-white/60 backdrop-blur-2xl border border-white p-6 rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(59,130,246,0.08)] hover:-translate-y-1 transition-all duration-300 group">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg mb-5 group-hover:scale-110 group-hover:-rotate-3 transition-transform shadow-sm border border-blue-100/50">1</div>
+                  <h4 className="text-base font-extrabold text-slate-800 mb-2">Chuẩn bị nội dung</h4>
+                  <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Nạp nội dung bài giảng, tài liệu nghiên cứu hoặc đề cương thô vào nền tảng.</p>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-indigo-700">2. Nhấp Khởi tạo</span>
-                  <p className="text-[10px] text-slate-500">Mô hình Gemini sẽ kết xuất tóm lược thông minh chuẩn thang đo chuẩn mực Bloom.</p>
+                {/* Bento Box 2 */}
+                <div className="bg-white/60 backdrop-blur-2xl border border-white p-6 rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(59,130,246,0.08)] hover:-translate-y-1 transition-all duration-300 group">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg mb-5 group-hover:scale-110 group-hover:-rotate-3 transition-transform shadow-sm border border-indigo-100/50">2</div>
+                  <h4 className="text-base font-extrabold text-slate-800 mb-2">AI Phân tích</h4>
+                  <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Công cụ sẽ cấu trúc hóa bài giảng, khởi tạo câu hỏi tương tác theo chuẩn Bloom.</p>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-pink-700">3. Nhận file .html</span>
-                  <p className="text-[10px] text-slate-500">Mã tương tác hoàn chỉnh sẵn sàng tải xuống hoặc sao chép nạp thẳng vào Moodle/Zalo.</p>
+                {/* Bento Box 3 */}
+                <div className="bg-white/60 backdrop-blur-2xl border border-white p-6 rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(59,130,246,0.08)] hover:-translate-y-1 transition-all duration-300 group">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-100 to-sky-50 text-sky-600 flex items-center justify-center font-bold text-lg mb-5 group-hover:scale-110 group-hover:-rotate-3 transition-transform shadow-sm border border-sky-100/50">3</div>
+                  <h4 className="text-base font-extrabold text-slate-800 mb-2">Kiết xuất HTML</h4>
+                  <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Nhận trọn bộ source code hiện đại sẵn sàng triển khai ngay lên LMS/Moodle.</p>
                 </div>
               </div>
             </div>
@@ -6117,14 +6162,37 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
           {/* GENERATION ACTIVE LOADING INDICATION */}
           {isGenerating && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center my-auto flex flex-col items-center justify-center space-y-8 h-full min-h-[450px]">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin"></div>
-                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-lg">⚙️</span>
+            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center my-auto flex flex-col items-center justify-center space-y-8 h-full min-h-[450px] shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-md">
+              <div className="relative z-10 w-28 h-28 flex items-center justify-center">
+                {/* Epic pulsing core */}
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-blue-500/20 via-sky-400/20 to-teal-400/20 animate-pulse"></div>
+                
+                {/* Magic spinning orbits */}
+                <div className="absolute w-[180%] h-[180%] rounded-full border-[2.5px] border-blue-400/20 border-t-blue-500 border-l-transparent animate-[spin_3s_linear_infinite]"></div>
+                <div className="absolute w-[140%] h-[140%] rounded-full border-[2.5px] border-teal-400/20 border-b-teal-500 border-r-transparent animate-[spin_2s_linear_infinite_reverse] opacity-70"></div>
+                <div className="absolute w-[110%] h-[110%] rounded-full border-[2px] border-sky-400/20 border-r-sky-500 border-t-transparent animate-[spin_1.5s_linear_infinite]"></div>
+
+                {/* Knowledge particles flying in */}
+                <div className="absolute w-full h-full overflow-visible">
+                  <div className="absolute top-0 left-0 w-2 h-2 bg-blue-500 rounded-full animate-ping" style={{ animationDuration: '1.2s' }}></div>
+                  <div className="absolute bottom-0 right-0 w-2 h-2 bg-teal-400 rounded-full animate-ping" style={{ animationDuration: '1.5s', animationDelay: '0.2s' }}></div>
+                  <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-amber-400 rounded-full animate-ping" style={{ animationDuration: '1s', animationDelay: '0.5s' }}></div>
+                  <div className="absolute bottom-0 left-0 w-2.5 h-2.5 bg-sky-400 rounded-full animate-ping" style={{ animationDuration: '1.8s', animationDelay: '0.1s' }}></div>
+                  <div className="-top-6 -left-6 absolute w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping" style={{ animationDuration: '0.8s', animationDelay: '0.7s' }}></div>
+                  <div className="-bottom-6 -right-6 absolute w-1.5 h-1.5 bg-teal-500 rounded-full animate-ping" style={{ animationDuration: '1.1s', animationDelay: '0.4s' }}></div>
+                </div>
+
+                {/* Book icon absorbing knowledge */}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-40 animate-pulse"></div>
+                  <BookOpen className="w-12 h-12 text-blue-600 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)] relative z-10 animate-[bounce_2s_ease-in-out_infinite]" strokeWidth={2} />
+                  <Sparkles className="absolute -top-4 -right-4 w-6 h-6 text-amber-400 animate-[spin_4s_linear_infinite]" />
+                  <Sparkles className="absolute -bottom-3 -left-4 w-5 h-5 text-teal-400 animate-[spin_3s_linear_infinite_reverse]" />
+                </div>
               </div>
-              <div className="space-y-3 max-w-sm">
-                <p className="text-base font-extrabold text-slate-800 animate-pulse">Trí tuệ nhân tạo đang cấu trúc nội dung...</p>
-                <div className="space-y-1 text-xs text-slate-500 font-medium">
+              <div className="space-y-4 max-w-sm mt-6">
+                <p className="text-[17px] font-extrabold text-slate-800 animate-pulse">Trí tuệ nhân tạo đang cấu trúc nội dung...</p>
+                <div className="space-y-2 text-[13px] text-slate-500 font-medium">
                   <p>• Sắp đặt các mục tiêu giảng dạy thang đo Bloom</p>
                   <p>• Soạn bộ 5 câu trắc nghiệm thực tế kèm lý giải</p>
                   <p>• Chuyển ngữ các ví dụ thực tiễn trực quan sinh động</p>
@@ -7096,10 +7164,9 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
       {/* Decorative and informative academic footer */}
       <footer className="bg-white border-t border-slate-200 mt-12 py-6 text-center text-slate-500 text-xs shadow-inner">
-        <p className="font-semibold text-slate-600">Học viện sư phạm số cùng InteractFlow AI v2.0</p>
-        <p className="mt-1 text-[11px] text-slate-400">Giáo án Active Learning trực quan - tương tác - giải pháp đột phá. Xây dựng phù hợp với bối cảnh giáo dục thời đại số 4.0.</p>
-        <p className="mt-2 font-medium">
-          Made by <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500 drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] animate-pulse">Kinh tế số TLU</span>
+        <p className="font-semibold text-slate-600">Giáo án Active Learning trực quan - tương tác - giải pháp đột phá. Xây dựng phù hợp với bối cảnh giáo dục thời đại số 4.0.</p>
+        <p className="mt-1 text-[11px] text-slate-400">
+          InteractFlow AI v2.0 made by <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500 drop-shadow-[0_0_6px_rgba(16,185,129,0.6)] animate-pulse">Kinh tế số TLU</span>
         </p>
       </footer>
 

@@ -78,7 +78,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
     if (customModel && customModel.trim()) {
       modelsToTry.push(customModel.trim());
     }
-    const standardFallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+    const standardFallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
     for (const m of standardFallbackModels) {
       if (!modelsToTry.includes(m)) {
         modelsToTry.push(m);
@@ -107,18 +107,29 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
     let lastError: any = null;
     
     for (const modelName of modelsToTry) {
-      try {
-        console.log(`[robustGenerateContent] Attempting generation with model: ${modelName}`);
-        const response = await ai.models.generateContent({
-          ...finalParams,
-          model: modelName
-        });
-        console.log(`[robustGenerateContent] Success with model: ${modelName}`);
-        return response;
-      } catch (err: any) {
-        lastError = err;
-        const errMsg = err?.message || String(err);
-        console.warn(`[robustGenerateContent] Model ${modelName} failed. Error:`, errMsg);
+      // Add retry loop for each model
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`[robustGenerateContent] Attempting generation with model: ${modelName} (Attempt ${attempt})`);
+          const response = await ai.models.generateContent({
+            ...finalParams,
+            model: modelName
+          });
+          console.log(`[robustGenerateContent] Success with model: ${modelName}`);
+          return response;
+        } catch (err: any) {
+          lastError = err;
+          const errMsg = err?.message || String(err);
+          console.warn(`[robustGenerateContent] Model ${modelName} failed (Attempt ${attempt}). Error:`, errMsg);
+          
+          if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand") || errMsg.includes("too many requests") || errMsg.includes("429")) {
+             // Transient error or quota, wait before retrying the same model
+             console.log(`[robustGenerateContent] Transient error detected. Retrying in ${attempt * 2} seconds...`);
+             await new Promise(res => setTimeout(res, attempt * 2000));
+             continue; // try again
+          }
+          break; // break the attempt loop, go to the next model
+        }
       }
     }
     throw lastError;
@@ -280,10 +291,9 @@ Yêu cầu nội dung:
 - Có ví dụ/case-study chuyên sâu minh chứng.
 - Tóm tắt ý chính của từng phân đoạn rõ ràng.`;
 
-      const response = await ai.models.generateContent({
-        model: model || "gemini-2.5-flash",
+      const response = await robustGenerateContent(ai, {
         contents: promptStr,
-      });
+      }, model);
 
       const generatedContent = response.text || "";
       res.json({ content: generatedContent });

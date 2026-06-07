@@ -68,6 +68,7 @@ export default function App() {
   // Preview State (inside the App for Lecturer test-flight)
   const [previewTab, setPreviewTab] = useState<'intro' | 'warmup' | 'sections' | 'flashcards' | 'quiz' | 'casestudy' | 'reflection' | 'submit'>('intro');
   const [previewSectionIdx, setPreviewSectionIdx] = useState(0);
+  const [isSlideScreenMode, setIsSlideScreenMode] = useState(false);
   const [previewQuizAnswers, setPreviewQuizAnswers] = useState<Record<number, string>>({});
   const [previewQuizScore, setPreviewQuizScore] = useState(0);
   const [previewFlippedFlashcards, setPreviewFlippedFlashcards] = useState<Record<number, boolean>>({});
@@ -4596,6 +4597,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           handlePreviewNextSection();
         } else if (e.key === 'ArrowLeft') {
           handlePreviewPrevSection();
+        } else if (e.key === 'Escape') {
+          setIsSlideScreenMode(false);
         }
       }
     };
@@ -4789,7 +4792,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     <div className="min-h-screen bg-[#fafbfc] text-slate-800 antialiased flex flex-col justify-between py-0">
       
       {/* Top Brand Navbar Banner */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+      {!isSlideScreenMode && (
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xl shadow-md font-bold">
@@ -4848,12 +4852,13 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
         </div>
       </header>
+      )}
 
       {/* Main Container Layout */}
       <main className="max-w-7xl mx-auto px-4 py-6 sm:py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
 
         {/* LEFT COLUMN: Input Configuration Form & Parameters (Takes 5/12 of widescreen) */}
-        <section className={`lg:col-span-5 space-y-6 ${activeTab !== 'editor' && 'hidden lg:block'}`}>
+        <section className={`lg:col-span-5 space-y-6 ${activeTab !== 'editor' && 'hidden lg:block'} ${isSlideScreenMode && 'hidden lg:hidden'}`}>
           
           {/* Two-Part Switcher in v2.0 */}
           {generatedLesson && (
@@ -6102,7 +6107,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         </section>
 
         {/* RIGHT COLUMN: PREVIEW SPACE / EXPORTS HUB (Takes 7/12 space) */}
-        <section className="lg:col-span-7 flex flex-col min-w-0">
+        <section className={`${isSlideScreenMode ? 'lg:col-span-12' : 'lg:col-span-7'} flex flex-col min-w-0`}>
           
           {/* EMPTY INTRODUCTORY STATE (Before lecturer generates first content) */}
           {!generatedLesson && !isGenerating && (
@@ -6245,20 +6250,23 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                 }`}>
                   
                   {/* Inside simulated header banner */}
-                  <div className={`p-3 rounded-xl mb-4 border text-[11px] flex items-center justify-between gap-2 flex-wrap ${
-                    appBackground === 'neon' ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
-                  }`}>
-                    <span className="font-bold">🖥️ Mô phỏng thiết bị học sinh</span>
-                    <div className="flex gap-2">
-                      <span>⏱️ {duration}</span>
-                      <span>🎓 {level}</span>
+                  {!isSlideScreenMode && (
+                    <div className={`p-3 rounded-xl mb-4 border text-[11px] flex items-center justify-between gap-2 flex-wrap ${
+                      appBackground === 'neon' ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
+                    }`}>
+                      <span className="font-bold">🖥️ Mô phỏng thiết bị học sinh</span>
+                      <div className="flex gap-2">
+                        <span>⏱️ {duration}</span>
+                        <span>🎓 {level}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* TAB CONTROLS SIDEBAR INTERACTIVE PREVIEW */}
-                  <div className={`flex gap-1 overflow-x-auto pb-2 border-b scrollbar-thin mb-4 ${
-                    appBackground === 'neon' ? 'border-slate-800' : 'border-slate-100'
-                  }`}>
+                  {!isSlideScreenMode && (
+                    <div className={`flex gap-1 overflow-x-auto pb-2 border-b scrollbar-thin mb-4 ${
+                      appBackground === 'neon' ? 'border-slate-800' : 'border-slate-100'
+                    }`}>
                     <button
                       onClick={() => setPreviewTab('intro')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -6344,6 +6352,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       <PenTool className="w-3.5 h-3.5" /> Bản Thu Hoạch
                     </button>
                   </div>
+                  )}
 
                   <AnimatePresence mode="wait">
                   {/* INTRO AND OBJECTS VIEW */}
@@ -6438,7 +6447,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       className="space-y-5"
                     >
                       {/* 2-in-1 Switcher Header */}
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-sm">
+                      {!isSlideScreenMode && (
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-sm">
                         <div className="space-y-0.5">
                           <span className="text-[10px] uppercase font-black text-emerald-700 tracking-wider flex items-center gap-1">
                             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -6448,6 +6458,17 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                         </div>
                         
                         <div className="flex items-center gap-2 w-full sm:w-auto">
+                          {slideMode && (
+                            <button
+                              type="button"
+                              onClick={() => setIsSlideScreenMode(true)}
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white shadow-sm border border-slate-700 text-[11px] font-extrabold rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              title="Trình chiếu toàn màn hình"
+                            >
+                              ⛶ Toàn màn hình
+                            </button>
+                          )}
+
                           {/* Toggle Mode Button */}
                           <div className="bg-white p-0.5 border rounded-xl flex shadow-sm w-full sm:w-auto">
                             <button
@@ -6475,15 +6496,47 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                           </div>
                         </div>
                       </div>
+                      )}
 
                       {slideMode ? (
                         /* PRESENTATION SLIDE MODE (BEAUTIFUL HIGH-FIDELITY BENTO GRID CANVAS) */
-                        <div id="preview-slide-view" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch animate-fade-in">
+                        <div id="preview-slide-view" className={`${isSlideScreenMode ? 'fixed inset-0 z-[100] bg-black p-0 sm:p-6 md:p-12 flex items-center justify-center overflow-hidden m-0' : 'grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch'} animate-fade-in`}>
                           {/* Left Column: Slide Theory card & tight-coupled navigation controls */}
-                          <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
+                          <div className={`${isSlideScreenMode ? 'w-full h-full max-w-6xl max-h-[850px] relative mx-auto' : 'lg:col-span-7'} flex flex-col justify-between space-y-4`}>
+                            {/* Fullscreen Close Button */}
+                            {isSlideScreenMode && (
+                              <>
+                                <button 
+                                  onClick={() => setIsSlideScreenMode(false)}
+                                  className="absolute -top-12 sm:top-0 right-0 sm:-right-16 z-[150] w-10 h-10 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-lg"
+                                >
+                                  <span className="font-bold text-lg leading-none">✕</span>
+                                </button>
+                                
+                                <button
+                                  type="button"
+                                  disabled={previewSectionIdx === 0}
+                                  onClick={handlePreviewPrevSection}
+                                  className="absolute top-1/2 -left-16 sm:-left-20 z-[150] -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md border border-white/30 transition-all cursor-pointer disabled:opacity-0 shadow-lg"
+                                >
+                                  <span className="font-bold text-xl leading-none">←</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={handlePreviewNextSection}
+                                  className="absolute top-1/2 -right-16 sm:-right-20 z-[150] -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-lg"
+                                >
+                                  <span className="font-bold text-xl leading-none">→</span>
+                                </button>
+                              </>
+                            )}
+
                             {/* Slide Canvas Wrapper with standard aspect-ratio styling */}
                             <div 
-                              className={`relative rounded-3xl border-2 shadow-2xl overflow-hidden transition-all duration-500 min-h-[380px] sm:min-h-[440px] flex flex-col justify-between bg-gradient-to-b ${
+                              className={`relative overflow-hidden transition-all duration-500 flex flex-col justify-between bg-gradient-to-b ${
+                                isSlideScreenMode ? 'rounded-2xl sm:rounded-3xl flex-grow h-full shadow-2xl border-4' : 'rounded-3xl border-2 min-h-[380px] sm:min-h-[440px] shadow-2xl'
+                              } ${
                                 slideTheme === 'light'
                                   ? [
                                       'from-white via-blue-50/20 to-slate-50/40 border-slate-100 text-slate-800 shadow-slate-100',
@@ -6546,38 +6599,40 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                               </div>
 
                               {/* Slide Footer / Navigation Controls (Merged for tightness) */}
-                              <div className="p-3 sm:p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur border-t border-opacity-10 border-slate-350 flex justify-between items-center relative z-10 rounded-b-3xl">
-                                <button
-                                  type="button"
-                                  disabled={previewSectionIdx === 0}
-                                  onClick={handlePreviewPrevSection}
-                                  className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl shadow-sm flex items-center gap-1 transition-all"
-                                >
-                                  ← Slide trước
-                                </button>
-                                
-                                <div className="hidden md:flex flex-col items-center justify-center pointer-events-none">
-                                  <span className="text-[10px] font-bold text-slate-500 opacity-70">
-                                    InteractFlow AI v2.0
-                                  </span>
-                                  <span className="text-[10px] font-medium text-slate-400">
-                                    💡 Dùng <kbd className="font-mono mx-0.5">←</kbd> <kbd className="font-mono mx-0.5">→</kbd> đổi slide
-                                  </span>
-                                </div>
+                              {!isSlideScreenMode && (
+                                <div className="p-3 sm:p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur border-t border-opacity-10 border-slate-350 flex justify-between items-center relative z-10 rounded-b-3xl">
+                                  <button
+                                    type="button"
+                                    disabled={previewSectionIdx === 0}
+                                    onClick={handlePreviewPrevSection}
+                                    className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl shadow-sm flex items-center gap-1 transition-all"
+                                  >
+                                    ← Slide trước
+                                  </button>
+                                  
+                                  <div className="hidden md:flex flex-col items-center justify-center pointer-events-none">
+                                    <span className="text-[10px] font-bold text-slate-500 opacity-70">
+                                      InteractFlow AI v2.0
+                                    </span>
+                                    <span className="text-[10px] font-medium text-slate-400">
+                                      💡 Dùng <kbd className="font-mono mx-0.5">←</kbd> <kbd className="font-mono mx-0.5">→</kbd> đổi slide
+                                    </span>
+                                  </div>
 
-                                <button
-                                  type="button"
-                                  onClick={handlePreviewNextSection}
-                                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow border border-emerald-700 transition-all flex items-center gap-1"
-                                >
-                                  {previewSectionIdx < generatedLesson.sections.length - 1 ? "Slide tiếp theo →" : "Đến ôn tập →"}
-                                </button>
-                              </div>
+                                  <button
+                                    type="button"
+                                    onClick={handlePreviewNextSection}
+                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow border border-emerald-700 transition-all flex items-center gap-1"
+                                  >
+                                    {previewSectionIdx < generatedLesson.sections.length - 1 ? "Slide tiếp theo →" : "Đến ôn tập →"}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
 
                           {/* Right Column: Interaction Bento Canvas (Example card & Quick Check card) */}
-                          <div className="lg:col-span-12 xl:col-span-5 flex flex-col justify-between gap-4">
+                          <div className={`${isSlideScreenMode ? 'hidden' : 'lg:col-span-12 xl:col-span-5 flex flex-col justify-between gap-4'}`}>
                             {/* Slide Example Box */}
                             <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-3 flex-grow flex flex-col justify-center">
                               <span className="text-[11px] uppercase font-black text-indigo-700 tracking-wider block flex items-center gap-1.5">

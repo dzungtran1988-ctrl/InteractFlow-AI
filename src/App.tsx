@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, 
   BookOpen, 
@@ -717,20 +718,20 @@ export default function App() {
         const boldMatch = rest.match(/^\*\*([^*]+)\*\*([\s\S]*)/);
         if (boldMatch) {
           points.push({
-            title: boldMatch[1].trim(),
+            title: boldMatch[1].replace(/^[\s\-–—*•]+/, '').trim(),
             body: boldMatch[2].trim().replace(/^[\s:：\-–—]+/, '').trim()
           });
         } else {
           const colonIdx = rest.indexOf(':');
           if (colonIdx > 0 && colonIdx < 40) {
             points.push({
-              title: rest.substring(0, colonIdx).trim(),
+              title: rest.substring(0, colonIdx).replace(/^[\s\-–—*•]+/, '').trim(),
               body: rest.substring(colonIdx + 1).replace(/^[\s\-–—]+/, '').trim()
             });
           } else {
             points.push({
               title: "",
-              body: rest
+              body: rest.replace(/^[\s\-–—*•]+/, '').trim()
             });
           }
         }
@@ -739,20 +740,20 @@ export default function App() {
         const boldMatch = rest.match(/^\*\*([^*]+)\*\*([\s\S]*)/);
         if (boldMatch) {
           points.push({
-            title: boldMatch[1].trim(),
-            body: boldMatch[2].trim().replace(/^[\s:：\-–—]+/, '').trim()
+            title: boldMatch[1].replace(/^[\s\-–—*•]+/, '').trim(),
+            body: boldMatch[2].replace(/^[\s:：\-–—]+/, '').trim()
           });
         } else {
           const colonIdx = rest.indexOf(':');
           if (colonIdx > 0 && colonIdx < 40) {
             points.push({
-              title: rest.substring(0, colonIdx).trim(),
+              title: rest.substring(0, colonIdx).replace(/^[\s\-–—*•]+/, '').trim(),
               body: rest.substring(colonIdx + 1).replace(/^[\s\-–—]+/, '').trim()
             });
           } else {
             points.push({
               title: "",
-              body: rest
+              body: rest.replace(/^[\s\-–—*•]+/, '').trim()
             });
           }
         }
@@ -761,8 +762,8 @@ export default function App() {
         const boldStartMatch = line.match(/^\*\*([^*]{3,40})\*\*([\s\S]*)/);
         if (boldStartMatch) {
           points.push({
-            title: boldStartMatch[1].trim(),
-            body: boldStartMatch[2].trim().replace(/^[\s:：\-–—]+/, '').trim()
+            title: boldStartMatch[1].replace(/^[\s\-–—*•]+/, '').trim(),
+            body: boldStartMatch[2].replace(/^[\s:：\-–—]+/, '').trim()
           });
         } else {
           introParagraphs.push(line);
@@ -779,14 +780,14 @@ export default function App() {
         const boldMatch = para.match(/^\*\*([^*]{3,45})\*\*([\s\S]*)/);
         if (boldMatch) {
           points.push({
-            title: boldMatch[1].trim(),
+            title: boldMatch[1].replace(/^[\s\-–—*•]+/, '').trim(),
             body: boldMatch[2].trim().replace(/^[\s:：\-–—]+/, '').trim()
           });
         } else {
           const colonIdx = para.indexOf(':');
           if (colonIdx > 0 && colonIdx < 40) {
             points.push({
-              title: para.substring(0, colonIdx).trim(),
+              title: para.substring(0, colonIdx).replace(/^[\s\-–—*•]+/, '').trim(),
               body: para.substring(colonIdx + 1).replace(/^[\s\-–—]+/, '').trim()
             });
           } else {
@@ -808,11 +809,15 @@ export default function App() {
           }
         }
       });
-      layoutType = 'twocolumn';
+      if (layoutType === 'grid') layoutType = 'twocolumn';
     } else if (points.length === 0) {
       layoutType = 'hero-only';
-    } else if (points.length >= 5) {
+    } else if (points.length >= 5 && layoutType === 'grid') {
       layoutType = 'list-block';
+    }
+
+    if (points.length > 0 && points.length < 5 && layoutType === 'grid') {
+      layoutType = 'twocolumn';
     }
 
     if (!detectedTakeaway) {
@@ -832,17 +837,23 @@ export default function App() {
     // Theme categorizer based on slide title
     const tLower = title.toLowerCase();
     let kicker: React.ReactNode = <><BookOpen className="w-3.5 h-3.5" /> Kiến thức cốt lõi</>;
-    
-    if (tLower.includes('khái niệm') || tLower.includes('định nghĩa') || tLower.includes('là gì') || tLower.includes('tổng quan') || tLower.includes('giới thiệu') || tLower.includes('lý thuyết')) {
+    let dynamicTheme = appTheme;
+
+    if (tLower.includes('khái niệm') || tLower.includes('định nghĩa') || tLower.includes('là gì') || tLower.includes('tổng quan') || tLower.includes('giới thiệu') || tLower.includes('lý thuyết') || tLower.includes('đặc trưng')) {
       kicker = <><Search className="w-3.5 h-3.5" /> Định nghĩa & Khái niệm</>;
+      dynamicTheme = 'ocean';
     } else if (tLower.includes('quy trình') || tLower.includes('các bước') || tLower.includes('tiến trình') || tLower.includes('vòng đời') || tLower.includes('thuật toán') || tLower.includes('workflow') || tLower.includes('bước')) {
       kicker = <><RotateCcw className="w-3.5 h-3.5" /> Quy trình & Các bước</>;
+      dynamicTheme = 'emerald';
     } else if (tLower.includes('lợi ích') || tLower.includes('ưu điểm') || tLower.includes('u việt') || tLower.includes('giá trị') || tLower.includes('cơ hội') || tLower.includes('vai trò')) {
       kicker = <><Sparkles className="w-3.5 h-3.5" /> Giá trị & Lợi thế</>;
+      dynamicTheme = 'sunset';
     } else if (tLower.includes('hạn chế') || tLower.includes('nhược điểm') || tLower.includes('thử thách') || tLower.includes('lưu ý') || tLower.includes('rủi ro') || tLower.includes('cảnh báo') || tLower.includes('bảo mật') || tLower.includes('thận trọng')) {
       kicker = <><AlertCircle className="w-3.5 h-3.5" /> Lưu ý & Rủi ro</>;
+      dynamicTheme = 'rose';
     } else if (tLower.includes('ứng dụng') || tLower.includes('thực tế') || tLower.includes('thực tiễn') || tLower.includes('áp dụng') || tLower.includes('thực hành') || tLower.includes('ví dụ')) {
       kicker = <><PenTool className="w-3.5 h-3.5" /> Ứng dụng thực tiễn</>;
+      dynamicTheme = 'mystic';
     }
 
     // Dynamic theme classes matching user selected appTheme perfectly
@@ -923,13 +934,33 @@ export default function App() {
       };
     };
 
-    const themeClasses = getSlideThemeClasses(appTheme, slideTheme);
+    const themeClasses = getSlideThemeClasses(dynamicTheme, slideTheme);
 
     const inlineCoreMarkdown = (val: string) => {
-      const parts = val.split(/\*\*([^*]+)\*\*/g);
+      // Handle literal '\n' escaping that the model might generate
+      const textToRender = val.replace(/\\n/g, '\n');
+      const lines = textToRender.split('\n');
       return (
         <span>
-          {parts.map((chunk, i) => i % 2 === 1 ? (
+          {lines.map((line, lIdx) => (
+            <React.Fragment key={lIdx}>
+              {line.split(/\*\*([^*]+)\*\*/g).map((chunk, i) => i % 2 === 1 ? (
+                <strong key={i} className={`font-extrabold px-1.5 py-0.5 rounded-md ${themeClasses.strongHighlight}`}>
+                  {chunk}
+                </strong>
+              ) : chunk)}
+              {lIdx < lines.length - 1 && <br />}
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    };
+
+    const inlineCoreTitleMarkdown = (val: string) => {
+      const cleanVal = val.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/<br\s*\/?>/gi, ' ').replace(/^[\s\-–—*•💡]+/, '').trim();
+      return (
+        <span>
+          {cleanVal.split(/\*\*([^*]+)\*\*/g).map((chunk, i) => i % 2 === 1 ? (
             <strong key={i} className={`font-extrabold px-1.5 py-0.5 rounded-md ${themeClasses.strongHighlight}`}>
               {chunk}
             </strong>
@@ -945,8 +976,14 @@ export default function App() {
         return (
           <section className="core-slide-timeline flex flex-col md:flex-row items-stretch gap-4 my-2">
             {points.map((pt, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-stretch relative">
-                <article className={`h-full p-4 md:p-5 rounded-2xl border flex flex-col justify-start gap-2.5 transition-all shadow-sm ${themeClasses.pointCard} relative z-10`}>
+              <motion.div 
+                key={idx} 
+                className="flex-1 flex flex-col items-stretch relative"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: idx * 0.15 }}
+              >
+                <article className={`h-full p-4 md:p-5 rounded-2xl border flex flex-col justify-start gap-2.5 transition-all shadow-sm ${themeClasses.pointCard} relative z-10 hover:shadow-md hover:-translate-y-1`}>
                   <div className="flex items-center justify-between">
                     <span className={`point-index px-2.5 py-1 rounded-lg flex items-center justify-center text-[9px] font-black tracking-wider shadow ${themeClasses.pointIndex}`}>
                       BƯỚC {idx + 1}
@@ -957,14 +994,14 @@ export default function App() {
                   </div>
                   {pt.title && (
                     <strong className={`font-black text-xs sm:text-[13px] tracking-tight block ${themeClasses.textAccent}`}>
-                      {inlineCoreMarkdown(pt.title)}
+                      {inlineCoreTitleMarkdown(pt.title)}
                     </strong>
                   )}
                   <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-650' : 'text-slate-300'}`}>
                     {inlineCoreMarkdown(pt.body)}
                   </span>
                 </article>
-              </div>
+              </motion.div>
             ))}
           </section>
         );
@@ -982,19 +1019,25 @@ export default function App() {
                 ? (slideTheme === 'light' ? 'text-emerald-800' : 'text-emerald-400') 
                 : (slideTheme === 'light' ? 'text-rose-800' : 'text-rose-400');
               return (
-                <article key={idx} className={`p-5 rounded-2xl border flex flex-col gap-3 transition-all ${contrBg} shadow-sm`}>
+                <motion.article 
+                  key={idx} 
+                  initial={{ opacity: 0, x: idx === 0 ? -15 : 15 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className={`p-5 rounded-2xl border flex flex-col gap-3 transition-all ${contrBg} shadow-sm backdrop-blur-sm shadow-black/5 hover:-translate-y-1 hover:shadow-lg`}
+                >
                   <div className="flex items-center gap-2">
                     <span className={`w-6.5 h-6.5 rounded-lg flex items-center justify-center text-[10px] font-black ${contrIndexBg}`}>
                       {idx === 0 ? "✓" : "✗"}
                     </span>
                     <strong className={`font-black text-xs sm:text-[13px] uppercase tracking-wider block ${contrText}`}>
-                      {pt.title ? inlineCoreMarkdown(pt.title) : (idx === 0 ? "Khía cạnh tích cực" : "Khía cạnh thận trọng")}
+                      {pt.title ? inlineCoreTitleMarkdown(pt.title) : (idx === 0 ? "Khía cạnh tích cực" : "Khía cạnh thận trọng")}
                     </strong>
                   </div>
                   <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-650' : 'text-slate-300'}`}>
                     {inlineCoreMarkdown(pt.body)}
                   </span>
-                </article>
+                </motion.article>
               );
             })}
           </section>
@@ -1006,19 +1049,25 @@ export default function App() {
           <section className={`core-slide-hero p-5 rounded-2xl border transition-all duration-300 ${themeClasses.hero}`}>
             <ul className="space-y-4">
               {points.map((pt, idx) => (
-                <li key={idx} className={`leading-relaxed ${slideTheme === 'light' ? 'text-slate-800' : 'text-slate-100'} flex items-start gap-3`}>
+                <motion.li 
+                  key={idx} 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: idx * 0.1 }}
+                  className={`leading-relaxed ${slideTheme === 'light' ? 'text-slate-800' : 'text-slate-100'} flex items-start gap-3 p-2 hover:bg-slate-500/5 rounded-xl transition-colors`}
+                >
                   <span className={`mt-0.5 flex-shrink-0 text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-sm border ${themeClasses.pointIndex}`}>
                     {idx + 1}
                   </span>
                   <div>
                     {pt.title && (
                       <strong className="font-extrabold tracking-wide block mb-0.5 text-[13px]">
-                        {inlineCoreMarkdown(pt.title)}
+                        {inlineCoreTitleMarkdown(pt.title)}
                       </strong>
                     )}
                     <span className="text-xs font-semibold leading-relaxed opacity-90">{inlineCoreMarkdown(pt.body)}</span>
                   </div>
-                </li>
+                </motion.li>
               ))}
             </ul>
           </section>
@@ -1029,16 +1078,22 @@ export default function App() {
         return (
           <section className="core-slide-twocolumn grid grid-cols-1 md:grid-cols-2 gap-4 my-2">
             {points.map((pt, idx) => (
-              <article key={idx} className={`p-5 rounded-2xl border flex flex-col justify-start gap-2.5 transition-all shadow-sm ${themeClasses.pointCard}`}>
+              <motion.article 
+                key={idx} 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: idx * 0.1 }}
+                className={`p-5 rounded-2xl border flex flex-col justify-start gap-2.5 transition-all shadow-sm ${themeClasses.pointCard}`}
+              >
                 {pt.title && (
                   <strong className={`font-black text-xs sm:text-[13px] tracking-tight block border-b pb-1.5 ${themeClasses.textAccent} flex items-center gap-1.5`}>
-                    <Lightbulb className="w-3.5 h-3.5" /> {inlineCoreMarkdown(pt.title)}
+                    <Lightbulb className="w-3.5 h-3.5" /> {inlineCoreTitleMarkdown(pt.title)}
                   </strong>
                 )}
                 <span className={`text-[11px] sm:text-xs font-semibold leading-relaxed block ${slideTheme === 'light' ? 'text-slate-655' : 'text-slate-300'}`}>
                   {inlineCoreMarkdown(pt.body)}
                 </span>
-              </article>
+              </motion.article>
             ))}
           </section>
         );
@@ -1062,16 +1117,22 @@ export default function App() {
             }
 
             return (
-              <article key={idx} className={`core-slide-point ${colSpan} p-4 md:p-5 rounded-3xl border flex flex-col justify-start gap-3 transition-all hover:-translate-y-1 hover:shadow-lg duration-300 shadow-sm relative overflow-hidden group ${themeClasses.pointCard}`}>
-                <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br ${slideTheme === 'light' ? 'from-white/40 to-transparent' : 'from-white/5 to-transparent'} pointer-events-none`} />
-                <div className="flex flex-col gap-2 relative z-10">
+              <motion.article 
+                key={idx} 
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: idx * 0.1 }}
+                className={`core-slide-point ${colSpan} p-4 md:p-5 rounded-3xl border flex flex-col justify-start gap-3 shadow-sm relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${themeClasses.pointCard}`}
+              >
+                <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br ${slideTheme === 'light' ? 'from-white/60 via-white/10 to-transparent' : 'from-white/10 via-transparent to-transparent'} pointer-events-none`} />
+                <div className="flex flex-col gap-2 relative z-10 backdrop-blur-sm">
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`point-index w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shadow-sm ${themeClasses.pointIndex}`}>
                       {String(idx + 1).padStart(2, '0')}
                     </span>
                     {pt.title && (
                       <strong className={`font-black text-xs sm:text-[14px] tracking-tight block ${themeClasses.textAccent}`}>
-                        {inlineCoreMarkdown(pt.title)}
+                        {inlineCoreTitleMarkdown(pt.title)}
                       </strong>
                     )}
                   </div>
@@ -1079,7 +1140,7 @@ export default function App() {
                     {inlineCoreMarkdown(pt.body)}
                   </span>
                 </div>
-              </article>
+              </motion.article>
             );
           })}
         </section>
@@ -1095,11 +1156,16 @@ export default function App() {
     const renderMainContent = () => (
       <>
         {hero && (
-          <section className={`core-slide-hero p-5 rounded-2xl border transition-all duration-300 ${themeClasses.hero}`}>
+          <motion.section 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className={`core-slide-hero p-5 rounded-2xl border transition-all duration-300 ${themeClasses.hero}`}
+          >
             <p className={`font-extrabold text-xs sm:text-sm leading-relaxed ${slideTheme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
               {inlineCoreMarkdown(hero)}
             </p>
-          </section>
+          </motion.section>
         )}
 
         {renderPointsLayout()}
@@ -2675,6 +2741,21 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       80% { transform: translateX(-1px); }
     }
 
+    @keyframes blurFadeInUp {
+      0% { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+      100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+
+    /* Staggered entrance for tab content */
+    .tab-content > div, .tab-content > section, .tab-content > ul {
+      animation: blurFadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .tab-content > *:nth-child(1) { animation-delay: 0.05s; }
+    .tab-content > *:nth-child(2) { animation-delay: 0.15s; }
+    .tab-content > *:nth-child(3) { animation-delay: 0.25s; }
+    .tab-content > *:nth-child(4) { animation-delay: 0.35s; }
+    .tab-content > *:nth-child(5) { animation-delay: 0.45s; }
+
     @media (max-width: 900px) {
       .core-slide-card-grid { grid-template-columns: 1fr; }
       #tab-sections #slide-canvas { min-height: 640px !important; }
@@ -2856,15 +2937,11 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
               <p class="text-xs font-bold text-slate-500">Chế độ hiển thị học liệu tương tác:</p>
             </div>
             
-            <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="flex items-center w-full sm:w-auto">
               <div class="bg-white p-0.5 border border-slate-200 rounded-xl flex shadow-sm w-full sm:w-auto">
                 <button onclick="changeSlideMode(true)" id="btn-slide-mode" class="flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-black rounded-lg transition-all bg-emerald-600 text-white shadow-sm cursor-pointer select-none">🖥️ Slide Trình Chiếu</button>
                 <button onclick="changeSlideMode(false)" id="btn-doc-mode" class="flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-black rounded-lg transition-all text-slate-500 hover:text-slate-800 cursor-pointer select-none">📄 Đọc Văn Bản</button>
               </div>
-              
-              <button onclick="toggleSlideTheme()" id="btn-slide-theme" class="p-2 border bg-white border-slate-250 rounded-xl shadow-sm hover:bg-slate-50 text-xs text-slate-600 font-bold transition-all flex items-center gap-1 justify-center cursor-pointer select-none" title="Đổi màu nền tối/sáng cho Slide">
-                🌙 Giao diện Tối
-              </button>
             </div>
           </div>
         </div>
@@ -2907,23 +2984,25 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                 </div>
               </div>
 
-              <div class="p-5 sm:p-6 bg-slate-50/70 border-t border-slate-100/80 flex justify-between items-center text-[10px] font-bold opacity-75 relative z-10">
-                <span>InteractFlow AI v2.0 Active Learning Presentation</span>
-                <span class="font-mono">Chế độ lớp học sư phạm</span>
-              </div>
-            </div>
+              <!-- Slide Footer / Navigation Controls -->
+              <div class="p-3 sm:p-4 bg-white/60 backdrop-blur border-t border-opacity-10 border-slate-350 flex justify-between items-center relative z-10 rounded-b-3xl">
+                <button onclick="navigateSlide('prev')" id="slide-prev-btn" class="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl shadow-sm flex items-center gap-1 transition-all cursor-pointer">
+                  ← Slide trước
+                </button>
+                
+                <div class="hidden md:flex flex-col items-center justify-center pointer-events-none">
+                  <span class="text-[10px] font-bold text-slate-500 opacity-70">
+                    InteractFlow AI v2.0
+                  </span>
+                  <span class="text-[10px] font-medium text-slate-400">
+                    💡 Dùng <kbd class="font-mono mx-0.5">←</kbd> <kbd class="font-mono mx-0.5">→</kbd> đổi slide
+                  </span>
+                </div>
 
-            <!-- Slide navigation bar tightly-coupled at bottom of slide-canvas -->
-            <div class="flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-2xl gap-3">
-              <button onclick="navigateSlide('prev')" id="slide-prev-btn" class="py-2.5 px-4 bg-white border border-slate-250 hover:bg-slate-100 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer select-none">
-                ← Slide trước
-              </button>
-              <div class="hidden sm:block text-[10px] text-slate-500 font-semibold">
-                💡 Nhấn phím mũi tên <kbd class="px-1.5 py-0.5 border bg-white rounded shadow-sm font-mono">←</kbd> <kbd class="px-1.5 py-0.5 border bg-white rounded shadow-sm font-mono">→</kbd> trên bàn phím để đổi Slide.
+                <button onclick="navigateSlide('next')" id="slide-next-btn" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow border border-emerald-700 transition-all flex items-center gap-1 cursor-pointer">
+                  Slide tiếp theo →
+                </button>
               </div>
-              <button onclick="navigateSlide('next')" id="slide-next-btn" class="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer select-none">
-                Slide tiếp theo →
-              </button>
             </div>
           </div>
 
@@ -3282,10 +3361,13 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         </div>
 
         <!-- Short summary of the whole lesson -->
-        <div class="bg-gradient-to-r from-emerald-800 to-teal-900 text-slate-100 p-6 rounded-2xl shadow-md space-y-3.5">
-          <h3 class="font-serif text-lg font-bold text-emerald-400">🏁 Đúc kết & Tóm tắt bài học</h3>
-          <p class="text-xs sm:text-sm leading-relaxed text-slate-200 whitespace-pre-wrap">${lesson.summary}</p>
-          <div class="text-center pt-2 text-[10px] text-teal-300 font-semibold tracking-wider uppercase">
+        <div class="bg-[#244b42] text-slate-100 p-6 sm:p-8 rounded-2xl shadow-sm space-y-4">
+          <h3 class="font-serif text-lg sm:text-xl font-bold text-[#23356e] flex items-center gap-2">
+            <svg class="w-5 h-5 text-[#23356e]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            Đúc kết & Tóm tắt bài học
+          </h3>
+          <p class="text-sm leading-relaxed text-white/95 whitespace-pre-wrap">${lesson.summary}</p>
+          <div class="text-center pt-2 text-[10px] text-[#55c7a5] font-semibold tracking-wider uppercase">
             Học tập chủ động - vững tay tri thức nghề nghiệp
           </div>
         </div>
@@ -3449,20 +3531,6 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       }
     }
 
-    function toggleSlideTheme() {
-      slideTheme = slideTheme === 'light' ? 'dark' : 'light';
-      const themeBtn = document.getElementById('btn-slide-theme');
-      
-      if (slideTheme === 'dark') {
-        themeBtn.innerHTML = "☀️ Giao diện Sáng";
-        themeBtn.className = "p-2 border bg-slate-800 border-slate-700 rounded-xl shadow-sm hover:bg-slate-750 text-xs text-slate-200 font-bold transition-all flex items-center gap-1 justify-center";
-      } else {
-        themeBtn.innerHTML = "🌙 Giao diện Tối";
-        themeBtn.className = "p-2 border bg-white border-slate-250 rounded-xl shadow-sm hover:bg-slate-50 text-xs text-slate-600 font-bold transition-all flex items-center gap-1 justify-center";
-      }
-      renderActiveSection();
-    }
-
     function renderActiveSection() {
       const data = RAW_SECTIONS_DATA[activeSectionIdx];
       if (!data) return;
@@ -3599,11 +3667,13 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       if (docSecInd) docSecInd.textContent = "Phần " + (activeSectionIdx + 1) + " / " + ${sectionsCount};
       
       // Update Titles
+      const cleanTitle = data.title.replace(/\\\\n/g, ' ').replace(/\\n/g, ' ').replace(/<br\\s*\\/?>/gi, ' ').trim();
+      
       const slideTitleEl = document.getElementById('slide-title');
-      if (slideTitleEl) slideTitleEl.textContent = data.title;
+      if (slideTitleEl) slideTitleEl.textContent = cleanTitle;
       
       const docSecTitleEl = document.getElementById('doc-section-title');
-      if (docSecTitleEl) docSecTitleEl.textContent = data.title;
+      if (docSecTitleEl) docSecTitleEl.textContent = cleanTitle;
       
       // Safely parse Markdown to beautiful HTML with Marked!
       let contentHtml = "";
@@ -3615,7 +3685,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         }
         contentHtml = marked.parse(data.content || "");
       } else {
-        const cleanContent = (data.content || "").replace(/\\\\r\\\\n/g, '\\n').replace(/\\\\n/g, '\\n');
+        const cleanContent = (data.content || "").replace(/\\r\\n/g, '\\n').replace(/\\n/g, '\\n');
         const paragraphs = cleanContent.split('\\n\\n');
         contentHtml = paragraphs.map(p => {
           const trimmed = p.trim();
@@ -4125,23 +4195,23 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           return;
         }
 
-        const listMatch = line.match(/^\\\\s*[-*+•]\\\\s*(.*)/);
-        const numMatch = line.match(/^\\\\s*(\\\\d+)\\\\.\\\\s*(.*)/);
+        const listMatch = line.match(/^\\s*[-*+•]\\s*(.*)/);
+        const numMatch = line.match(/^\\s*(\\d+)\\.\\s*(.*)/);
 
         if (listMatch) {
           const rest = listMatch[1].trim();
-          const boldMatch = rest.match(/^\\\\*\\\\*([^*]+)\\\\*\\\\*([\\\\s\\\\S]*)/);
+          const boldMatch = rest.match(/^\\*\\*([^*]+)\\*\\*([\\s\\S]*)/);
           if (boldMatch) {
             points.push({
               title: boldMatch[1].trim(),
-              body: boldMatch[2].trim().replace(/^\\\\\s*[:：\\-–—]+/, '').trim()
+              body: boldMatch[2].trim().replace(/^[\\s:：\\-–—]+/, '').trim()
             });
           } else {
             const colonIdx = rest.indexOf(':');
             if (colonIdx > 0 && colonIdx < 40) {
               points.push({
                 title: rest.substring(0, colonIdx).trim(),
-                body: rest.substring(colonIdx + 1).replace(/^\\\\\s*[\\-–—]+/, '').trim()
+                body: rest.substring(colonIdx + 1).replace(/^[\\s\\-–—]+/, '').trim()
               });
             } else {
               points.push({
@@ -4152,18 +4222,18 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           }
         } else if (numMatch) {
           const rest = numMatch[2].trim();
-          const boldMatch = rest.match(/^\\\\*\\\\*([^*]+)\\\\*\\\\*([\\\\s\\\\S]*)/);
+          const boldMatch = rest.match(/^\\*\\*([^*]+)\\*\\*([\\s\\S]*)/);
           if (boldMatch) {
             points.push({
               title: boldMatch[1].trim(),
-              body: boldMatch[2].trim().replace(/^\\\\\s*[:：\\-–—]+/, '').trim()
+              body: boldMatch[2].trim().replace(/^[\\s:：\\-–—]+/, '').trim()
             });
           } else {
             const colonIdx = rest.indexOf(':');
             if (colonIdx > 0 && colonIdx < 40) {
               points.push({
                 title: rest.substring(0, colonIdx).trim(),
-                body: rest.substring(colonIdx + 1).replace(/^\\\\\s*[\\-–—]+/, '').trim()
+                body: rest.substring(colonIdx + 1).replace(/^[\\s\\-–—]+/, '').trim()
               });
             } else {
               points.push({
@@ -4173,11 +4243,11 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
             }
           }
         } else {
-          const boldStartMatch = line.match(/^\\\\*\\\\*([^*]{3,40})\\\\*\\\\*([\\\\s\\\\S]*)/);
+          const boldStartMatch = line.match(/^\\*\\*([^*]{3,40})\\*\\*([\\s\\S]*)/);
           if (boldStartMatch) {
             points.push({
               title: boldStartMatch[1].trim(),
-              body: boldStartMatch[2].trim().replace(/^\\\\\s*[:：\\-–—]+/, '').trim()
+              body: boldStartMatch[2].trim().replace(/^[\\s:：\\-–—]+/, '').trim()
             });
           } else {
             introParagraphs.push(line);
@@ -4190,18 +4260,18 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       if (points.length === 0 && introParagraphs.length > 1) {
         hero = introParagraphs[0];
         introParagraphs.slice(1).forEach((para) => {
-          const boldMatch = para.match(/^\\\\*\\\\*([^*]{3,45})\\\\*\\\\*([\\\\s\\\\S]*)/);
+          const boldMatch = para.match(/^\\*\\*([^*]{3,45})\\*\\*([\\s\\S]*)/);
           if (boldMatch) {
             points.push({
               title: boldMatch[1].trim(),
-              body: boldMatch[2].trim().replace(/^\\\\\s*[:：\\-–—]+/, '').trim()
+              body: boldMatch[2].trim().replace(/^[\\s:：\\-–—]+/, '').trim()
             });
           } else {
             const colonIdx = para.indexOf(':');
             if (colonIdx > 0 && colonIdx < 40) {
               points.push({
                 title: para.substring(0, colonIdx).trim(),
-                body: para.substring(colonIdx + 1).replace(/^\\\\\s*[\\-–—]+/, '').trim()
+                body: para.substring(colonIdx + 1).replace(/^[\\s\\-–—]+/, '').trim()
               });
             } else {
               const words = para.split(' ').filter(Boolean);
@@ -4229,7 +4299,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       }
 
       if (!detectedTakeaway) {
-        const italicMatch = contentText.match(/\\\\*(?!\\\\*)([^*]{15,220})\\\\*(?!\\\\*)/);
+        const italicMatch = contentText.match(/\\*(?!\\*)([^*]{15,220})\\*(?!\\*)/);
         if (italicMatch) {
           detectedTakeaway = italicMatch[1].trim();
         }
@@ -4276,6 +4346,17 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         }).join('');
       };
 
+      const inlineCoreTitleMarkdown = (val) => {
+        const cleanVal = val.replace(/\\\\n/g, ' ').replace(/\\n/g, ' ').replace(/<br\\s*\\/?>/gi, ' ').replace(/^[\\s\\-–—*•💡]+/, '').trim();
+        const parts = cleanVal.split(/\\*\\*([^*]+)\\*\\*/g);
+        return parts.map((chunk, i) => {
+          if (i % 2 === 1) {
+            return '<strong class="font-black px-1.5 py-0.5 rounded-md text-[var(--blue-700)] bg-[var(--ux-soft)]">' + chunk + '</strong>';
+          }
+          return chunk;
+        }).join('');
+      };
+
       const renderPointsHtml = () => {
         if (points.length === 0) return "";
 
@@ -4288,7 +4369,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                 '<span class="point-index" style="' + pointIndexStyle + '; padding: 0.2rem 0.5rem; border-radius: 0.5rem; width: auto; height: auto; font-size: 8px; margin-bottom: 0;">BƯỚC ' + (idx + 1) + '</span>' +
                 (idx < points.length - 1 ? '<span class="hidden md:inline" style="color: #cbd5e1; font-weight: bold; font-size: 14px;">➔</span>' : '') +
               '</div>' +
-              (pt.title ? '<strong style="' + pTitleStyle + '; margin-top: 0.35rem;">' + inlineCoreMarkdown(pt.title) + '</strong>' : '') +
+              (pt.title ? '<strong style="' + pTitleStyle + '; margin-top: 0.35rem;">' + inlineCoreTitleMarkdown(pt.title) + '</strong>' : '') +
               '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</article></div>';
           });
@@ -4312,7 +4393,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
             html += '<article class="core-slide-point flex flex-col gap-2 max-w-none shadow-sm" style="background: ' + cardBg + ' !important; border-color: ' + cardBorder + ' !important;">' +
               '<div class="flex items-center gap-2">' +
                 '<span class="point-index" style="background: ' + idxBg + ' !important; margin-bottom: 0;">' + (isFirst ? "✓" : "✗") + '</span>' +
-                '<strong style="color: ' + tColor + ' !important; text-transform: uppercase; font-size: 11px; margin-bottom: 0; letter-spacing: 0.05em;">' + (pt.title ? inlineCoreMarkdown(pt.title) : (isFirst ? "Mặt tích cực" : "Mặt rủi ro / lưu ý")) + '</strong>' +
+                '<strong style="color: ' + tColor + ' !important; text-transform: uppercase; font-size: 11px; margin-bottom: 0; letter-spacing: 0.05em;">' + (pt.title ? inlineCoreTitleMarkdown(pt.title) : (isFirst ? "Mặt tích cực" : "Mặt rủi ro / lưu ý")) + '</strong>' +
               '</div>' +
               '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</article>';
@@ -4328,7 +4409,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
             html += '<li style="display: flex; align-items: flex-start; gap: 0.75rem;">' +
               '<span class="point-index" style="' + pointIndexStyle + '; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 10px; flex-shrink: 0; margin-top: 0.15rem;">' + (idx + 1) + '</span>' +
               '<div>' +
-              (pt.title ? '<strong style="display: block; font-size: 13px; font-weight: 800; margin-bottom: 0.15rem;">' + inlineCoreMarkdown(pt.title) + '</strong>' : '') +
+              (pt.title ? '<strong style="display: block; font-size: 13px; font-weight: 800; margin-bottom: 0.15rem;">' + inlineCoreTitleMarkdown(pt.title) + '</strong>' : '') +
               '<span style="font-size: 12px; font-weight: 600; opacity: 0.9;">' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</div></li>';
           });
@@ -4340,7 +4421,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
           let html = '<section class="core-slide-twocolumn my-4">';
           points.forEach((pt) => {
             html += '<article class="core-slide-point flex flex-col justify-start gap-2 max-w-none shadow-sm">' +
-              (pt.title ? '<strong style="' + pTitleStyle + '; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 0.3rem;"><i data-lucide="lightbulb" class="inline w-3 h-3 mr-1 mb-0.5"></i> ' + inlineCoreMarkdown(pt.title) + '</strong>' : '') +
+              (pt.title ? '<strong style="' + pTitleStyle + '; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 0.3rem;"><i data-lucide="lightbulb" class="inline w-3 h-3 mr-1 mb-0.5"></i> ' + inlineCoreTitleMarkdown(pt.title) + '</strong>' : '') +
               '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
               '</article>';
           });
@@ -4360,7 +4441,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
           html += '<article class="core-slide-point ' + spanClass + ' flex flex-col justify-start gap-2 max-w-none shadow-sm">' +
             '<span class="point-index" style="' + pointIndexStyle + '">' + String(idx + 1).padStart(2, '0') + '</span>' +
-            '<strong style="' + pTitleStyle + '">' + inlineCoreMarkdown(pt.title || '') + '</strong>' +
+            '<strong style="' + pTitleStyle + '">' + inlineCoreTitleMarkdown(pt.title || '') + '</strong>' +
             '<span>' + inlineCoreMarkdown(pt.body) + '</span>' +
             '</article>';
         });
@@ -5245,122 +5326,30 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                   </div>
                   
                   {/* 1. Theme Color Selector */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
-                      <span>Tông màu chủ đạo (Color Theme):</span>
-                      <span className={`font-black uppercase tracking-wider text-[10px] ${
-                        appTheme === 'ocean' ? 'text-blue-600' :
-                        appTheme === 'emerald' ? 'text-emerald-600' :
-                        appTheme === 'sunset' ? 'text-orange-650' :
-                        appTheme === 'mystic' ? 'text-purple-600' :
-                        'text-rose-600'
-                      }`}>{appTheme}</span>
-                    </label>
-                    <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-1 gap-3 pt-1">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-550 uppercase block">Tông màu chủ đạo:</label>
+                      <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-xs">
                       {[
-                        { key: 'ocean', color: 'bg-blue-600', label: 'Ocean' },
-                        { key: 'emerald', color: 'bg-emerald-600', label: 'Emerald' },
-                        { key: 'sunset', color: 'bg-orange-600', label: 'Sunset' },
-                        { key: 'mystic', color: 'bg-purple-650', label: 'Mystic' },
-                        { key: 'rose', color: 'bg-rose-600', label: 'Rose' }
+                        { key: 'ocean', label: 'Ocean' },
+                        { key: 'emerald', label: 'Emerald' },
+                        { key: 'sunset', label: 'Sunset' },
+                        { key: 'mystic', label: 'Mystic' },
+                        { key: 'rose', label: 'Rose' }
                       ].map((item) => (
                         <button
                           key={item.key}
                           type="button"
                           onClick={() => setAppTheme(item.key as any)}
-                          className={`relative flex flex-col items-center justify-center p-2 rounded-xl border bg-white transition-all cursor-pointer ${
+                          className={`flex-1 py-1 text-[9px] font-extrabold rounded-md cursor-pointer transition-all ${
                             appTheme === item.key 
-                              ? 'border-slate-800 shadow-[0_4px_12px_rgba(0,0,0,0.08)] ring-2 ring-slate-800 ring-offset-1 scale-105 font-bold z-10' 
-                              : 'border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-300'
+                              ? 'bg-slate-800 text-white shadow-xs font-black' 
+                              : 'text-slate-500 hover:text-slate-800'
                           }`}
                         >
-                          <span className={`w-4.5 h-4.5 rounded-full ${item.color} shadow-inner mb-1`}></span>
-                          <span className="text-[9px] text-slate-650 font-bold leading-none">{item.label}</span>
-                          {appTheme === item.key && (
-                            <span className="absolute -top-1 -right-1 bg-slate-950 text-white text-[7px] w-4 h-4 rounded-full flex items-center justify-center font-extrabold shadow">✓</span>
-                          )}
+                          {item.label}
                         </button>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* 2. Background Pattern Selector */}
-                  <div className="space-y-1.5 pt-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
-                      <span>Kiểu hình nền học liệu:</span>
-                      <span className="text-slate-700 font-extrabold capitalize">{appBackground} filter</span>
-                    </label>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {[
-                        { key: 'glass', icon: '✨', label: 'Kính mờ' },
-                        { key: 'grid', icon: '📐', label: 'Hệ lưới' },
-                        { key: 'minimal', icon: '▫️', label: 'Tối giản' },
-                        { key: 'neon', icon: '🌌', label: 'Bóng đêm' }
-                      ].map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => setAppBackground(item.key as any)}
-                          className={`relative py-2 px-1 rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center ${
-                            appBackground === item.key 
-                              ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-[1.02] font-extrabold z-10' 
-                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          <span className="text-xs mb-0.5">{item.icon}</span>
-                          <span className="text-[9px] font-bold leading-normal">{item.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 3. Font Pairings & FontSize */}
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-550 uppercase block">Phông chữ sư phạm:</label>
-                      <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-xs">
-                        {[
-                          { key: 'sans', label: 'Sans-serif' },
-                          { key: 'serif', label: 'Serif học' },
-                          { key: 'mono', label: 'Mono kĩ' }
-                        ].map((item) => (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setAppFont(item.key as any)}
-                            className={`flex-1 py-1 text-[9px] font-extrabold rounded-md cursor-pointer transition-all ${
-                              appFont === item.key 
-                                ? 'bg-slate-800 text-white shadow-xs font-black' 
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-550 uppercase block">Cỡ chữ học tập:</label>
-                      <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-xs">
-                        {[
-                          { key: 'normal', label: 'Thường' },
-                          { key: 'large', label: 'Lớn' },
-                          { key: 'xlarge', label: 'Rất Lớn' }
-                        ].map((item) => (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setAppFontSize(item.key as any)}
-                            className={`flex-1 py-1 text-[9px] font-extrabold rounded-md cursor-pointer transition-all ${
-                              appFontSize === item.key 
-                                ? 'bg-slate-800 text-white shadow-xs font-black' 
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
                       </div>
                     </div>
                   </div>
@@ -6356,9 +6345,17 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                     </button>
                   </div>
 
+                  <AnimatePresence mode="wait">
                   {/* INTRO AND OBJECTS VIEW */}
                   {previewTab === 'intro' && (
-                    <div className="space-y-4">
+                    <motion.div 
+                      key="intro"
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-4"
+                    >
                       <div className="border-b pb-2">
                         <span className={`text-[10px] uppercase font-extrabold ${themeColorsSim[appTheme].accentText}`}>Lời tự sự mở đầu</span>
                         <h3 className={`text-lg font-bold ${appBackground === 'neon' ? 'text-slate-100' : 'text-slate-800'}`}>{generatedLesson.lessonTitle}</h3>
@@ -6386,12 +6383,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       <button onClick={() => setPreviewTab('warmup')} className={`w-full py-2 text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all cursor-pointer ${themeColorsSim[appTheme].primary}`}>
                         Đến Hoạt Động Khởi Động →
                       </button>
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* WARM UP VIEW */}
                   {previewTab === 'warmup' && (
-                    <div className="space-y-4">
+                    <motion.div 
+                      key="warmup"
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-4"
+                    >
                       <div className="border-b pb-2">
                         <span className={`text-[10px] uppercase font-extrabold ${themeColorsSim[appTheme].accentText}`}>Khơi nguồn năng lượng</span>
                         <h3 className={`text-base font-bold ${appBackground === 'neon' ? 'text-slate-100' : 'text-slate-800'}`}>{generatedLesson.warmUp.title}</h3>
@@ -6419,12 +6423,20 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       <button onClick={() => setPreviewTab('sections')} className={`w-full py-2 text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all cursor-pointer ${themeColorsSim[appTheme].primary}`}>
                         Đến bài đọc Kiến thức →
                       </button>
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* CONTENT SECTIONS VIEW */}
                   {previewTab === 'sections' && (
-                    <div id="interactive-content-container" className="space-y-5">
+                    <motion.div 
+                      key="sections"
+                      id="interactive-content-container" 
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.4 }}
+                      className="space-y-5"
+                    >
                       {/* 2-in-1 Switcher Header */}
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-sm">
                         <div className="space-y-0.5">
@@ -6461,18 +6473,6 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                               📄 Đọc Tài Liệu
                             </button>
                           </div>
-
-                          {/* Dark/Light theme toggle for slides */}
-                          {slideMode && (
-                            <button
-                              type="button"
-                              onClick={() => setSlideTheme(prev => prev === 'light' ? 'dark' : 'light')}
-                              className="p-2 border bg-white rounded-xl shadow-sm hover:bg-slate-50 text-xs text-slate-600 transition-all flex items-center justify-center"
-                              title="Đổi màu nền Slide"
-                            >
-                              {slideTheme === 'light' ? '🌙 Tối' : '☀️ Sáng'}
-                            </button>
-                          )}
                         </div>
                       </div>
 
@@ -6536,7 +6536,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                                   <h3 className={`text-xl sm:text-2xl font-extrabold tracking-tight font-serif ${
                                     slideTheme === 'light' ? 'text-emerald-800' : 'text-emerald-400'
                                   }`}>
-                                    {generatedLesson.sections[previewSectionIdx].title}
+                                    {generatedLesson.sections[previewSectionIdx].title.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/<br\s*\/?>/gi, ' ').trim()}
                                   </h3>
                                   
                                   <div className="presentation-content">
@@ -6545,35 +6545,34 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                                 </div>
                               </div>
 
-                              {/* Slide Footer */}
-                              <div className="p-5 sm:p-6 bg-opacity-25 bg-slate-350 border-t border-opacity-10 border-slate-350 flex justify-between items-center text-[10px] font-bold opacity-70">
-                                <span>InteractFlow AI v2.0 Interactive Lessons</span>
-                                <span className="font-mono">Chế độ thuyết trình lớp học</span>
-                              </div>
-                            </div>
+                              {/* Slide Footer / Navigation Controls (Merged for tightness) */}
+                              <div className="p-3 sm:p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur border-t border-opacity-10 border-slate-350 flex justify-between items-center relative z-10 rounded-b-3xl">
+                                <button
+                                  type="button"
+                                  disabled={previewSectionIdx === 0}
+                                  onClick={handlePreviewPrevSection}
+                                  className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl shadow-sm flex items-center gap-1 transition-all"
+                                >
+                                  ← Slide trước
+                                </button>
+                                
+                                <div className="hidden md:flex flex-col items-center justify-center pointer-events-none">
+                                  <span className="text-[10px] font-bold text-slate-500 opacity-70">
+                                    InteractFlow AI v2.0
+                                  </span>
+                                  <span className="text-[10px] font-medium text-slate-400">
+                                    💡 Dùng <kbd className="font-mono mx-0.5">←</kbd> <kbd className="font-mono mx-0.5">→</kbd> đổi slide
+                                  </span>
+                                </div>
 
-                            {/* Control Controls Dashboard */}
-                            <div className="flex justify-between items-center bg-slate-10/50 border border-slate-200/60 p-3 rounded-2xl gap-3">
-                              <button
-                                type="button"
-                                disabled={previewSectionIdx === 0}
-                                onClick={handlePreviewPrevSection}
-                                className="px-4 py-2.5 bg-white border border-slate-250 hover:bg-slate-100 disabled:opacity-40 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-                              >
-                                ← Slide trước
-                              </button>
-                              
-                              <div className="hidden md:block text-[11px] text-slate-500 font-bold">
-                                💡 Nhấn phím mũi tên <kbd className="bg-white border p-1 rounded font-mono shadow-sm">←</kbd> <kbd className="bg-white border p-1 rounded font-mono shadow-sm">→</kbd> để đổi slide.
+                                <button
+                                  type="button"
+                                  onClick={handlePreviewNextSection}
+                                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow border border-emerald-700 transition-all flex items-center gap-1"
+                                >
+                                  {previewSectionIdx < generatedLesson.sections.length - 1 ? "Slide tiếp theo →" : "Đến ôn tập →"}
+                                </button>
                               </div>
-
-                              <button
-                                type="button"
-                                onClick={handlePreviewNextSection}
-                                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-1 cursor-pointer"
-                              >
-                                {previewSectionIdx < generatedLesson.sections.length - 1 ? "Slide tiếp theo →" : "Đến thẻ ôn tập →"}
-                              </button>
                             </div>
                           </div>
 
@@ -6666,7 +6665,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                             <div className="flex justify-between items-center border-b pb-3">
                               <div>
                                 <span className="text-[10px] uppercase font-black text-blue-600 tracking-wider">Trang học liệu chính</span>
-                                <h3 className="text-base font-bold text-emerald-800">{generatedLesson.sections[previewSectionIdx].title}</h3>
+                                <h3 className="text-base font-bold text-emerald-800">{generatedLesson.sections[previewSectionIdx].title.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/<br\s*\/?>/gi, ' ').trim()}</h3>
                               </div>
                               <span className="text-xs bg-slate-100 py-1.5 px-3.5 font-extrabold rounded-full text-slate-650">Phần {previewSectionIdx + 1} / {generatedLesson.sections.length}</span>
                             </div>
@@ -6734,12 +6733,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                           </div>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* FLASHCARDS INTERVIEW TESTING */}
                   {previewTab === 'flashcards' && (
-                    <div className="space-y-4">
+                    <motion.div 
+                      key="flashcards"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-4"
+                    >
                       <div className="border-b pb-2">
                         <span className="text-[10px] uppercase font-extrabold text-pink-600 font-bold">Thử sức rèn luyện phản ứng nhanh</span>
                         <h3 className="text-base font-bold text-slate-800">Thẻ Ghi Nhớ Từng Bước</h3>
@@ -6794,12 +6800,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       <button onClick={() => setPreviewTab('quiz')} className="w-full py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all cursor-pointer">
                         Đến Trắc Nghiệm Tự Đánh Giá →
                       </button>
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* INTERACTIVE QUIZ TESTING PLAY */}
                   {previewTab === 'quiz' && (
-                    <div className="space-y-4">
+                    <motion.div 
+                      key="quiz"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-4"
+                    >
                       <div className="flex justify-between items-center border-b pb-2">
                         <div>
                           <span className="text-[10px] uppercase font-extrabold text-emerald-600">Hệ thống bài kiểm tra</span>
@@ -6884,12 +6897,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       <button onClick={() => setPreviewTab('casestudy')} className="w-full py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all cursor-pointer">
                         Đến Nghiên Cứu Tình Huống →
                       </button>
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* CASE STUDY VIEW */}
                   {previewTab === 'casestudy' && (
-                    <div className="space-y-5">
+                    <motion.div 
+                      key="casestudy"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-5"
+                    >
                       <div className="border-b pb-2">
                         <span className="text-[10px] uppercase font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded animate-fade-in font-bold">Nghiên cứu tình huống ứng dụng (Thang Bloom 3 mức)</span>
                         <h3 className="text-base font-bold text-slate-800 mt-1">{generatedLesson.caseStudy.title}</h3>
@@ -6995,12 +7015,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       <button onClick={() => setPreviewTab('reflection')} className="w-full py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all cursor-pointer shadow-md">
                         Đến viết Phản hồi Thu hoạch →
                       </button>
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* STUDENT STUDY REFLECTIONS & TEXT DOWNLOADS */}
                   {previewTab === 'reflection' && (
-                    <div className="space-y-5">
+                    <motion.div 
+                      key="reflection"
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.4 }}
+                      className="space-y-5"
+                    >
                       <div className="border-b pb-2">
                         <span className="text-[10px] uppercase font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Báo cáo khảo dượt</span>
                         <h3 className="text-base font-bold text-slate-800">Câu Hỏi Suy Ngẫm Cá Nhân</h3>
@@ -7083,12 +7110,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
 
                       {/* Summary display */}
-                      <div className="bg-gradient-to-br from-slate-850 to-slate-900 text-slate-100 p-4 rounded-xl space-y-2 shadow-inner">
-                        <span className="text-xs font-serif font-black text-emerald-400 block border-b border-slate-700 pb-1">🏁 Tóm tắt đọng lại:</span>
-                        <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-line">{generatedLesson.summary}</p>
+                      <div className="bg-[#244b42] text-slate-100 p-6 sm:p-8 rounded-2xl shadow-sm space-y-4">
+                        <h3 className="font-serif text-lg sm:text-xl font-bold text-[#23356e] flex items-center gap-2">
+                          <svg className="w-5 h-5 text-[#23356e]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                          Đúc kết & Tóm tắt bài học
+                        </h3>
+                        <p className="text-sm leading-relaxed text-white/95 whitespace-pre-wrap">{generatedLesson.summary}</p>
+                        <div className="text-center pt-2 text-[10px] text-[#55c7a5] font-semibold tracking-wider uppercase">
+                          Học tập chủ động - vững tay tri thức nghề nghiệp
+                        </div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
 
                 </div>
               </div>

@@ -129,7 +129,12 @@ export default function App() {
       borderActive: 'border-emerald-500',
       fill: '#059669',
       gradient: 'from-teal-500 via-emerald-500 to-indigo-500',
-      accentBg: 'bg-emerald-500/10'
+      accentBg: 'bg-emerald-500/10',
+      summaryBg: 'bg-gradient-to-br from-emerald-50 to-slate-50 border border-emerald-100',
+      summaryHeading: 'text-emerald-900',
+      summaryIcon: 'text-emerald-600',
+      summaryBorder: 'border-emerald-100/50',
+      summaryFooterText: 'text-emerald-500'
     },
     ocean: {
       primary: 'bg-blue-600 hover:bg-blue-700 text-white',
@@ -141,7 +146,12 @@ export default function App() {
       borderActive: 'border-blue-500',
       fill: '#2563eb',
       gradient: 'from-sky-500 via-blue-500 to-indigo-500',
-      accentBg: 'bg-blue-500/10'
+      accentBg: 'bg-blue-500/10',
+      summaryBg: 'bg-gradient-to-br from-blue-50 to-slate-50 border border-blue-100',
+      summaryHeading: 'text-blue-900',
+      summaryIcon: 'text-blue-600',
+      summaryBorder: 'border-blue-100/50',
+      summaryFooterText: 'text-blue-500'
     },
     sunset: {
       primary: 'bg-orange-600 hover:bg-orange-700 text-white',
@@ -153,7 +163,12 @@ export default function App() {
       borderActive: 'border-orange-500',
       fill: '#ea580c',
       gradient: 'from-yellow-400 via-orange-500 to-red-500',
-      accentBg: 'bg-orange-500/10'
+      accentBg: 'bg-orange-500/10',
+      summaryBg: 'bg-gradient-to-br from-orange-50 to-slate-50 border border-orange-100',
+      summaryHeading: 'text-orange-900',
+      summaryIcon: 'text-orange-600',
+      summaryBorder: 'border-orange-100/50',
+      summaryFooterText: 'text-orange-500'
     },
     mystic: {
       primary: 'bg-purple-600 hover:bg-purple-700 text-white',
@@ -165,7 +180,12 @@ export default function App() {
       borderActive: 'border-purple-500',
       fill: '#7c3aed',
       gradient: 'from-fuchsia-400 via-purple-500 to-indigo-500',
-      accentBg: 'bg-purple-500/10'
+      accentBg: 'bg-purple-500/10',
+      summaryBg: 'bg-gradient-to-br from-purple-50 to-slate-50 border border-purple-100',
+      summaryHeading: 'text-purple-900',
+      summaryIcon: 'text-purple-600',
+      summaryBorder: 'border-purple-100/50',
+      summaryFooterText: 'text-purple-500'
     },
     rose: {
       primary: 'bg-rose-600 hover:bg-rose-700 text-white',
@@ -177,7 +197,12 @@ export default function App() {
       borderActive: 'border-rose-500',
       fill: '#db2777',
       gradient: 'from-pink-400 via-rose-500 to-red-500',
-      accentBg: 'bg-rose-500/10'
+      accentBg: 'bg-rose-500/10',
+      summaryBg: 'bg-gradient-to-br from-rose-50 to-slate-50 border border-rose-100',
+      summaryHeading: 'text-rose-900',
+      summaryIcon: 'text-rose-600',
+      summaryBorder: 'border-rose-100/50',
+      summaryFooterText: 'text-rose-500'
     }
   };
 
@@ -3324,9 +3349,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         </div>
 
         <!-- Student Information settings -->
-        <div class="bg-slate-100/50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
-          <label for="student-name-input" class="text-xs font-bold text-slate-600">Họ và tên sinh viên:</label>
-          <input type="text" id="student-name-input" placeholder="Nhập tên của bạn để xuất báo cáo bài thu hoạch..." class="flex-grow w-full bg-white text-sm border border-slate-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        <div class="bg-slate-100/50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label for="student-name-input" class="text-xs font-bold text-slate-600">Họ và tên sinh viên:</label>
+            <input type="text" id="student-name-input" placeholder="Nhập họ tên..." class="w-full bg-white text-sm border border-slate-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="student-id-input" class="text-xs font-bold text-slate-600">Mã số sinh viên (MSSV):</label>
+            <input type="text" id="student-id-input" placeholder="Nhập MSSV..." class="w-full bg-white text-sm border border-slate-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="student-class-input" class="text-xs font-bold text-slate-600">Lớp học:</label>
+            <input type="text" id="student-class-input" placeholder="Nhập tên lớp..." class="w-full bg-white text-sm border border-slate-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
         </div>
 
         <div class="space-y-6">
@@ -3356,19 +3391,19 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
               📁 Lưu nội dung nháp
             </button>
             <button onclick="downloadNotes()" class="w-1/2 sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-              📥 Tải tệp Thu hoạch (.txt)
+              📥 Tải tệp Thu hoạch (.json)
             </button>
           </div>
         </div>
 
         <!-- Short summary of the whole lesson -->
-        <div class="bg-[#244b42] text-slate-100 p-6 sm:p-8 rounded-2xl shadow-sm space-y-4">
-          <h3 class="font-serif text-lg sm:text-xl font-bold text-[#23356e] flex items-center gap-2">
-            <svg class="w-5 h-5 text-[#23356e]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+        <div class="${themeColorsSim[appTheme].summaryBg} p-6 sm:p-8 rounded-3xl shadow-sm space-y-4">
+          <h3 class="font-serif text-lg sm:text-xl font-bold ${themeColorsSim[appTheme].summaryHeading} flex items-center gap-2">
+            <svg class="w-5 h-5 ${themeColorsSim[appTheme].summaryIcon}" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
             Đúc kết & Tóm tắt bài học
           </h3>
-          <p class="text-sm leading-relaxed text-white/95 whitespace-pre-wrap">${lesson.summary}</p>
-          <div class="text-center pt-2 text-[10px] text-[#55c7a5] font-semibold tracking-wider uppercase">
+          <p class="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">${lesson.summary}</p>
+          <div class="text-center pt-4 mt-4 border-t ${themeColorsSim[appTheme].summaryBorder} text-[10px] ${themeColorsSim[appTheme].summaryFooterText} font-extrabold tracking-widest uppercase">
             Học tập chủ động - vững tay tri thức nghề nghiệp
           </div>
         </div>
@@ -3949,7 +3984,11 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         });
       }
       const nameEl = document.getElementById('student-name-input');
+      const idEl = document.getElementById('student-id-input');
+      const classEl = document.getElementById('student-class-input');
       if (nameEl) localStorage.setItem('student_name_v', nameEl.value);
+      if (idEl) localStorage.setItem('student_id_v', idEl.value);
+      if (classEl) localStorage.setItem('student_class_v', classEl.value);
       
       const toast = document.getElementById('toast-feedback');
       if (toast) {
@@ -3971,6 +4010,14 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       const sName = localStorage.getItem('student_name_v');
       const nameEl = document.getElementById('student-name-input');
       if (sName && nameEl) nameEl.value = sName;
+      
+      const sId = localStorage.getItem('student_id_v');
+      const idEl = document.getElementById('student-id-input');
+      if (sId && idEl) idEl.value = sId;
+
+      const sClass = localStorage.getItem('student_class_v');
+      const classEl = document.getElementById('student-class-input');
+      if (sClass && classEl) classEl.value = sClass;
 
       const wResponse = localStorage.getItem('warmup_response_v');
       const wEl = document.getElementById('warmup-response');
@@ -3979,67 +4026,57 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
     function downloadNotes() {
       const nameEl = document.getElementById('student-name-input');
+      const idEl = document.getElementById('student-id-input');
+      const classEl = document.getElementById('student-class-input');
       const studentName = nameEl ? nameEl.value.trim() : 'Sinh viên';
-      let text = "BẢN THU HOẠCH & BÀI LÀM TỰ HỌC - " + studentName.toUpperCase() + "\\n";
-      text += "Bài học: " + (RAW_LESSON_DATA ? RAW_LESSON_DATA.lessonTitle : "") + "\\n";
-      text += "Ngày hoàn thành: " + new Date().toLocaleDateString('vi-VN') + "\\n";
-      text += "========================================\\n\\n";
+      const studentId = idEl ? idEl.value.trim() : '';
+      const studentClass = classEl ? classEl.value.trim() : '';
       
-      text += "I. PHẢN HỒI HOẠT ĐỘNG KHỞI ĐỘNG (WARM UP)\\n";
-      text += "Câu hỏi kích hoạt: " + (RAW_LESSON_DATA && RAW_LESSON_DATA.warmUp ? RAW_LESSON_DATA.warmUp.task : "") + "\\n";
       const warmupEl = document.getElementById('warmup-response');
-      text += "Trả lời của bạn:\\n" + (warmupEl ? warmupEl.value.trim() : "") + "\\n\\n";
-      
-      text += "========================================\\n";
-      text += "II. PHẢN HỒI CHECK HIỂU NHANH THEO SLIDE (ACTIVE RECALL)\\n\\n";
+      const warmupResponse = warmupEl ? warmupEl.value.trim() : '';
+
+      const reportData = {
+        "Họ và tên": studentName,
+        "MSSV": studentId,
+        "Lớp": studentClass,
+        "Bài học": RAW_LESSON_DATA ? RAW_LESSON_DATA.lessonTitle : "",
+        "Ngày hoàn thành": new Date().toLocaleDateString('vi-VN'),
+        "Khởi động_Trả lời": warmupResponse,
+        "Tổng_Trắc_nghiệm": score + " / " + totalQuestions
+      };
+
       if (RAW_LESSON_DATA && RAW_LESSON_DATA.sections) {
         RAW_LESSON_DATA.sections.forEach((sec, sIdx) => {
-          text += "Slide " + (sIdx + 1) + ": " + sec.title + "\\n";
-          text += "Câu hỏi: " + (sec.quickCheck ? sec.quickCheck.question : "") + "\\n";
-          text += "Trả lời: " + (quickCheckAnswers[sIdx] || "(Chưa trả lời)").trim() + "\\n\\n";
+          reportData["Slide " + (sIdx + 1) + "_Trả lời Quick Check"] = (quickCheckAnswers[sIdx] || "(Chưa trả lời)").trim();
         });
       }
- 
-      text += "========================================\\n";
-      text += "III. PHÂN TÍCH NGHIÊN CỨU TÌNH HUỐNG (CASE STUDY WORKSHEET)\\n\\n";
-      text += "Tình huống: " + (RAW_LESSON_DATA && RAW_LESSON_DATA.caseStudy ? RAW_LESSON_DATA.caseStudy.title : "") + "\\n\\n";
-      if (RAW_LESSON_DATA && RAW_LESSON_DATA.caseStudy && RAW_LESSON_DATA.caseStudy.tasks) {
-        RAW_LESSON_DATA.caseStudy.tasks.forEach((task, tIdx) => {
-          text += "Nhiệm vụ " + (tIdx + 1) + " (" + task.bloomLevel + "): " + task.question + "\\n";
-          text += "Trả lời: " + (caseStudyAnswers[tIdx] || "(Chưa trả lời)").trim() + "\\n\\n";
-          text += "----------------------------------------\\n\\n";
-        });
-      }
- 
-      text += "========================================\\n";
-      text += "IV. CÂU HỎI SUY NGẪM PHẢN BIỆN (REFLECTIONS)\\n\\n";
-      if (RAW_LESSON_DATA && RAW_LESSON_DATA.reflectionQuestions) {
-        RAW_LESSON_DATA.reflectionQuestions.forEach((q, idx) => {
-          text += "Câu hỏi phản ngẫm " + (idx + 1) + ": " + q + "\\n";
-          const reflectEl = document.getElementById('reflect-text-' + idx);
-          text += "Trả lời của bạn:\\n" + (reflectEl ? reflectEl.value.trim() : "") + "\\n\\n";
-          text += "----------------------------------------\\n\\n";
-        });
-      }
- 
-      text += "========================================\\n";
-      text += "V. KẾT QUẢ TRẮC NGHIỆM KHÁCH QUAN (QUIZ ASSESSMENT)\\n\\n";
-      text += "Điểm số tự đánh giá: " + score + " / " + totalQuestions + "\\n\\n";
+
       if (RAW_LESSON_DATA && RAW_LESSON_DATA.quizQuestions) {
         RAW_LESSON_DATA.quizQuestions.forEach((q, qIndex) => {
           const chosenOpt = quizAnswered[qIndex] || "Chưa trả lời";
-          const isCorrect = chosenOpt === q.correctAnswer;
-          text += "Câu hỏi " + (qIndex + 1) + ": " + q.question + "\\n";
-          text += "Lựa chọn của bạn: " + chosenOpt + " (" + (isCorrect ? "ĐÚNG" : "SAI - Đáp án đúng: " + q.correctAnswer) + ")\\n";
-          text += "----------------------------------------\\n\\n";
+          reportData["Trắc nghiệm_Câu " + (qIndex + 1)] = chosenOpt + " (" + (chosenOpt === q.correctAnswer ? "ĐÚNG" : "SAI") + ")";
         });
       }
- 
-      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+
+      if (RAW_LESSON_DATA && RAW_LESSON_DATA.caseStudy && RAW_LESSON_DATA.caseStudy.tasks) {
+        RAW_LESSON_DATA.caseStudy.tasks.forEach((task, tIdx) => {
+          reportData["Tình huống_Nhiệm vụ " + (tIdx + 1)] = (caseStudyAnswers[tIdx] || "(Chưa trả lời)").trim();
+        });
+      }
+
+      if (RAW_LESSON_DATA && RAW_LESSON_DATA.reflectionQuestions) {
+        RAW_LESSON_DATA.reflectionQuestions.forEach((q, idx) => {
+          const reflectEl = document.getElementById('reflect-text-' + idx);
+          reportData["Phản biện_Câu " + (idx + 1)] = reflectEl ? reflectEl.value.trim() : "";
+        });
+      }
+
+      const jsonString = JSON.stringify(reportData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
       const u = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = u;
-      a.download = "Bai_Lam_Tu_Hoc_" + studentName.replace(/ /g, "_") + ".txt";
+      a.download = "BaoCao_" + studentName.replace(/ /g, "_") + (studentId ? "_" + studentId : "") + ".json";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -4731,58 +4768,46 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
     if (!generatedLesson) return;
     recordLocalCompletion();
     const name = previewStudentName.trim() || 'Sinh viên';
-    let text = "BẢN THU HOẠCH & BÀI LÀM TỰ HỌC - " + name.toUpperCase() + "\n";
-    text += "Bài học: " + generatedLesson.lessonTitle + "\n";
-    text += "Ngày hoàn thành: " + new Date().toLocaleDateString('vi-VN') + "\n";
-    text += "========================================\n\n";
+    const studentId = previewStudentId.trim();
+    const studentClass = previewStudentClass.trim();
     
-    text += "I. PHẢN HỒI HOẠT ĐỘNG KHỞI ĐỘNG (WARM UP)\n";
-    text += "Câu hỏi kích hoạt: " + generatedLesson.warmUp.task + "\n";
     const warmUpInput = document.getElementById('prev-warm-ta') as HTMLTextAreaElement;
-    text += "Trả lời của bạn:\n" + (warmUpInput ? warmUpInput.value.trim() || "(Chưa trả lời)" : "(Chưa trả lời)") + "\n\n";
-    
-    text += "========================================\n";
-    text += "II. PHẢN HỒI CHECK HIỂU NHANH THEO SLIDE (ACTIVE RECALL)\n\n";
+    const warmupResponse = warmUpInput ? warmUpInput.value.trim() : "";
+
+    const reportData: Record<string, string> = {
+      "Họ và tên": name,
+      "MSSV": studentId,
+      "Lớp": studentClass,
+      "Bài học": generatedLesson.lessonTitle,
+      "Ngày hoàn thành": new Date().toLocaleDateString('vi-VN'),
+      "Khởi động_Trả lời": warmupResponse,
+      "Tổng_Trắc_nghiệm": `${previewQuizScore} / 5 (${Object.keys(previewQuizAnswers).length} / 5 câu đã làm)`
+    };
+
     generatedLesson.sections.forEach((sec, sIdx) => {
-      text += `Slide ${sIdx + 1}: ${sec.title}\n`;
-      text += `Câu hỏi: ${sec.quickCheck.question}\n`;
-      text += `Trả lời: ${(previewQuickCheckAnswers[sIdx] || "").trim() || "(Chưa trả lời)"}\n\n`;
+      reportData[`Slide ${sIdx + 1}_Trả lời Quick Check`] = (previewQuickCheckAnswers[sIdx] || "(Chưa trả lời)").trim();
     });
 
-    text += "========================================\n";
-    text += "III. PHÂN TÍCH NGHIÊN CỨU TÌNH HUỐNG (CASE STUDY WORKSHEET)\n\n";
-    text += "Tình huống: " + generatedLesson.caseStudy.title + "\n\n";
-    generatedLesson.caseStudy.tasks.forEach((task, tIdx) => {
-      text += `Nhiệm vụ ${tIdx + 1} (${task.bloomLevel}): ${task.question}\n`;
-      text += `Trả lời: ${(previewCaseStudyAnswers[tIdx] || "").trim() || "(Chưa trả lời)"}\n\n`;
-      text += "----------------------------------------\n\n";
-    });
-
-    text += "========================================\n";
-    text += "IV. CÂU HỎI SUY NGẪM PHẢN BIỆN (REFLECTIONS)\n\n";
-    generatedLesson.reflectionQuestions.forEach((q, idx) => {
-      text += `Câu hỏi phản ngẫm ${idx + 1}: ${q}\n`;
-      text += `Trả lời của bạn:\n${(previewStudentResponses[idx] || "").trim() || "(Chưa trả lời)"}\n\n`;
-      text += "----------------------------------------\n\n";
-    });
-
-    text += "========================================\n";
-    text += "V. KẾT QUẢ TRẮC NGHIỆM KHÁCH QUAN (QUIZ ASSESSMENT)\n\n";
-    const answeredCount = Object.keys(previewQuizAnswers).length;
-    text += `Điểm số tự đánh giá: ${previewQuizScore} / 5 (${answeredCount} / 5 câu đã làm)\n\n`;
     generatedLesson.quizQuestions.forEach((q, qIndex) => {
       const chosenOpt = previewQuizAnswers[qIndex] || "Chưa trả lời";
       const isCorrect = chosenOpt === q.correctAnswer;
-      text += `Câu hỏi ${qIndex + 1}: ${q.question}\n`;
-      text += `Lựa chọn của bạn: ${chosenOpt} (${isCorrect ? "ĐÚNG" : "SAI - Đáp án đúng: " + q.correctAnswer})\n`;
-      text += "----------------------------------------\n\n";
+      reportData[`Trắc nghiệm_Câu ${qIndex + 1}`] = `${chosenOpt} (${isCorrect ? "ĐÚNG" : "SAI - Đáp án đúng: " + q.correctAnswer})`;
     });
 
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    generatedLesson.caseStudy.tasks.forEach((task, tIdx) => {
+      reportData[`Tình huống_Nhiệm vụ ${tIdx + 1}`] = (previewCaseStudyAnswers[tIdx] || "(Chưa trả lời)").trim();
+    });
+
+    generatedLesson.reflectionQuestions.forEach((q, idx) => {
+      reportData[`Phản biện_Câu ${idx + 1}`] = (previewStudentResponses[idx] || "(Chưa trả lời)").trim();
+    });
+
+    const jsonString = JSON.stringify(reportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
     const u = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = u;
-    a.download = "Bai_Lam_Tu_Hoc_" + name.replace(/ /g, "_") + ".txt";
+    a.download = `BaoCao_${name.replace(/ /g, "_")}${studentId ? "_" + studentId : ""}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -5316,7 +5341,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer bg-slate-50 hover:bg-slate-100 p-2 rounded-xl text-xs font-medium sm:col-span-2">
                       <input type="checkbox" checked={enableReflection} onChange={(e) => setEnableReflection(e.target.checked)} className="accent-emerald-600 rounded" />
-                      <span>3 Câu hỏi phản biện sâu để lấy bản ghi thu hoạch (.txt)</span>
+                      <span>3 Câu hỏi phản biện sâu để lấy bản ghi thu hoạch (.json)</span>
                     </label>
                   </div>
                 </div>
@@ -7153,7 +7178,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
                       <div className="space-y-2">
                         <div className="flex gap-2">
                           <button onClick={handleSaveDraftLocal} className="w-1/2 py-2.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all cursor-pointer">Lưu nháp cục bộ</button>
-                          <button onClick={handleDownloadStudentReport} className="w-1/2 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all cursor-pointer">Tải tệp nộp bài (.txt)</button>
+                          <button onClick={handleDownloadStudentReport} className="w-1/2 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all cursor-pointer">Tải tệp nộp bài (.json)</button>
                         </div>
                         <button 
                           onClick={handleSubmitAndRecordLesson}
@@ -7165,13 +7190,13 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
 
                       {/* Summary display */}
-                      <div className="bg-[#244b42] text-slate-100 p-6 sm:p-8 rounded-2xl shadow-sm space-y-4">
-                        <h3 className="font-serif text-lg sm:text-xl font-bold text-[#23356e] flex items-center gap-2">
-                          <svg className="w-5 h-5 text-[#23356e]" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                      <div className={`${themeColorsSim[appTheme].summaryBg} p-6 sm:p-8 rounded-3xl shadow-sm space-y-4`}>
+                        <h3 className={`font-serif text-lg sm:text-xl font-bold ${themeColorsSim[appTheme].summaryHeading} flex items-center gap-2`}>
+                          <svg className={`w-5 h-5 ${themeColorsSim[appTheme].summaryIcon}`} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
                           Đúc kết & Tóm tắt bài học
                         </h3>
-                        <p className="text-sm leading-relaxed text-white/95 whitespace-pre-wrap">{generatedLesson.summary}</p>
-                        <div className="text-center pt-2 text-[10px] text-[#55c7a5] font-semibold tracking-wider uppercase">
+                        <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{generatedLesson.summary}</p>
+                        <div className={`text-center pt-4 mt-4 border-t ${themeColorsSim[appTheme].summaryBorder} text-[10px] ${themeColorsSim[appTheme].summaryFooterText} font-extrabold tracking-widest uppercase`}>
                           Học tập chủ động - vững tay tri thức nghề nghiệp
                         </div>
                       </div>

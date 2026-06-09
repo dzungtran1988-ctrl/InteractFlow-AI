@@ -122,9 +122,12 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
           const errMsg = err?.message || String(err);
           console.warn(`[robustGenerateContent] Model ${modelName} failed (Attempt ${attempt}). Error:`, errMsg);
           
-          if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand") || errMsg.includes("too many requests") || errMsg.includes("429")) {
+          if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand")) {
+            console.log(`[robustGenerateContent] Model unavailable or high demand. Immediately falling back to next model...`);
+            break; // jump to the next model
+          } else if (errMsg.includes("too many requests") || errMsg.includes("429")) {
              // Transient error or quota, wait before retrying the same model
-             console.log(`[robustGenerateContent] Transient error detected. Retrying in ${attempt * 2} seconds...`);
+             console.log(`[robustGenerateContent] Rate limit detected. Retrying in ${attempt * 2} seconds...`);
              await new Promise(res => setTimeout(res, attempt * 2000));
              continue; // try again
           }

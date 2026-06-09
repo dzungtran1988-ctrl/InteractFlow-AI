@@ -4864,15 +4864,17 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
               )}
             </div>
 
-            <button
+            <a
               id="btn-open-stats-dashboard"
-              onClick={() => setIsStatsModalOpen(true)}
+              href="https://result-of-interact-flow-ai.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-3.5 py-2.5 bg-indigo-50 hover:bg-slate-100 text-indigo-750 hover:text-indigo-900 font-bold text-xs rounded-xl border border-indigo-200 hover:border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
               title="Xem bảng thống kê kết quả rèn luyện"
             >
               <Award className="w-4 h-4 text-indigo-550" />
               <span className="hidden sm:inline">Thống Kê Thầy Cô</span>
-            </button>
+            </a>
           </div>
 
         </div>

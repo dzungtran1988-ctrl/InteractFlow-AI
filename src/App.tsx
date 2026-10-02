@@ -108,13 +108,22 @@ export default function App() {
     localStorage.setItem("GEMINI_API_KEY", customApiKey);
   }, [customApiKey]);
 
-  // Selected Gemini model from user (persists in localStorage)
+  // Selected Gemini model from user (persists in localStorage, auto-upgrades deprecated 1.5/2.0 models)
   const [selectedModel, setSelectedModel] = useState<string>(() => {
-    return localStorage.getItem("GEMINI_SELECTED_MODEL") || "gemini-2.5-flash";
+    const saved = localStorage.getItem("GEMINI_SELECTED_MODEL");
+    if (!saved || saved.includes("1.5") || saved.includes("2.0") || saved === "gemini-pro") {
+      return "gemini-3.8-flash";
+    }
+    return saved;
   });
 
   useEffect(() => {
-    localStorage.setItem("GEMINI_SELECTED_MODEL", selectedModel);
+    if (selectedModel.includes("1.5") || selectedModel.includes("2.0") || selectedModel === "gemini-pro") {
+      setSelectedModel("gemini-3.8-flash");
+      localStorage.setItem("GEMINI_SELECTED_MODEL", "gemini-3.8-flash");
+    } else {
+      localStorage.setItem("GEMINI_SELECTED_MODEL", selectedModel);
+    }
   }, [selectedModel]);
 
   // helper definitions for simulated preview styling
@@ -313,11 +322,15 @@ export default function App() {
     contents: any[],
     responseSchema?: any
   ): Promise<any> => {
-    let chosenModel = model || "gemini-2.5-flash";
+    let chosenModel = model || "gemini-3.8-flash";
+    if (chosenModel.includes("1.5") || chosenModel.includes("2.0") || chosenModel === "gemini-pro") {
+      chosenModel = "gemini-3.8-flash";
+    }
     // models to try in case of fallback
     const modelsToTry = [chosenModel];
-    if (chosenModel !== "gemini-2.5-flash") modelsToTry.push("gemini-2.5-flash");
-    if (chosenModel !== "gemini-1.5-flash") modelsToTry.push("gemini-1.5-flash");
+    if (!modelsToTry.includes("gemini-3.8-flash")) modelsToTry.push("gemini-3.8-flash");
+    if (!modelsToTry.includes("gemini-2.5-flash")) modelsToTry.push("gemini-2.5-flash");
+    if (!modelsToTry.includes("gemini-flash-latest")) modelsToTry.push("gemini-flash-latest");
 
     const body: any = {
       contents: contents,
@@ -490,7 +503,8 @@ export default function App() {
         const response = await fetch("/api/analyze-metadata", {
           method: "POST",
           headers: { 
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...(customApiKey ? { "x-gemini-key": customApiKey } : {})
           },
           body: JSON.stringify({
             file: { mimeType, data: base64Data },
@@ -1685,7 +1699,8 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
         const response = await fetch("/api/generate-lesson", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...(customApiKey ? { "x-gemini-key": customApiKey } : {})
           },
           body: JSON.stringify({
             title,
@@ -1743,12 +1758,10 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       const errMsg = err.message || "";
       if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
         setGenerationError(
-          "⚠️ Hạn mức cuộc gọi API Gemini hiện tại đã tạm hết (429 Quota Exceeded). " +
-          "Bởi vì bạn đang chạy trên gói dùng thử miễn phí chung, hãy vui lòng đợi tầm 1 phút rồi ấn lại, " +
-          "hoặc chèn mã cài đặt riêng của bạn bằng cách gắn GEMINI_API_KEY trong Settings > Secrets để sử dụng không giới hạn."
+          "Hệ thống AI đang tiếp nhận nhiều lượt xử lý cùng lúc. Vui lòng chờ vài giây rồi bấm 'Khởi Tạo Bài Học Tương Tác' để hệ thống tự động kết nối lại kênh tối ưu."
         );
       } else {
-        setGenerationError(errMsg || "Không thể khởi tạo nội dung khóa học từ AI. Hãy đảm bảo API Key đã được cấu hình trong Secrets.");
+        setGenerationError(errMsg || "Không thể khởi tạo nội dung khóa học từ AI vào lúc này. Vui lòng thử lại sau ít giây.");
       }
     } finally {
       setIsGenerating(false);
@@ -4917,64 +4930,6 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
 
           {editorStep === 'generate' || !generatedLesson ? (
             <>
-              {/* API Key & Gemini Model Configuration Card */}
-              <div className="bg-[#f0f9ff]/80 border border-[#bfe2fd] rounded-2xl p-4 shadow-sm space-y-3 animate-fade-in text-blue-900">
-                <div className="flex items-center justify-between border-b border-blue-100 pb-1.5">
-                  <label className="text-[10px] font-black text-blue-900 uppercase tracking-widest flex items-center gap-1.5">
-                    ⚙️ Cấu Hình API & Mô Hình Gemini
-                  </label>
-                  <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-black">
-                    Cấu hình hệ thống
-                  </span>
-                </div>
-
-                {/* Model selection dropdown */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    🤖 CHỌN MÔ HÌNH DỰ TRÚ:
-                  </label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-blue-200 bg-white focus:outline-0 focus:ring-1 focus:ring-blue-400 transition-all text-blue-955 shadow-3xs cursor-pointer"
-                  >
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Đề xuất / Cực nhanh & Thông minh)</option>
-                    <option value="gemini-2.0-flash">Gemini 2.0 Flash (Tốc độ vượt trội)</option>
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Độ tương thích cao / Ổn định)</option>
-                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (Siêu mạnh mẽ / Lập luận chuyên sâu)</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Lý luận cao cấp)</option>
-                  </select>
-                </div>
-
-                {/* API Key input line */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    🔑 GEMINI API KEY:
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      value={customApiKey || ""}
-                      onChange={(e) => setCustomApiKey(e.target.value)}
-                      placeholder="Nhập khóa API của bạn (ví dụ: AIzaSy...)"
-                      className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-blue-200 bg-white placeholder-slate-400 focus:outline-0 focus:ring-1 focus:ring-blue-400 transition-all text-blue-900 pr-10 shadow-3xs"
-                    />
-                    {customApiKey && (
-                      <button
-                        type="button"
-                        onClick={() => setCustomApiKey("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
-                      >
-                        Xóa
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-blue-700 leading-relaxed font-semibold">
-                    * Nếu khóa API cá nhân của bạn cũ hoặc gặp lỗi không thể đọc/không hiểu mô hình, vui lòng chuyển tùy chọn trên thành <strong>Gemini 1.5 Flash</strong> để duy trì tính tương thích tối đa. Khóa được lưu cục bộ an toàn trong bộ nhớ trình duyệt của bạn (localStorage).
-                  </p>
-                </div>
-              </div>
-
               {/* Quick Loading & File Upload Module Tabs Layout */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
                 {/* Tab selection buttons */}

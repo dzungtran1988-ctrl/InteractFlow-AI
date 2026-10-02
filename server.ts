@@ -72,13 +72,26 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
     };
   };
 
+  // Helper to normalize model name to active supported Gemini models (handling deprecated 1.5/2.0 models)
+  const normalizeGeminiModel = (model?: string): string => {
+    if (!model) return "gemini-3.8-flash";
+    const trimmed = model.trim();
+    if (trimmed.includes("1.5-pro") || trimmed.includes("2.0-pro")) {
+      return "gemini-3.1-pro-preview";
+    }
+    if (trimmed.includes("1.5") || trimmed.includes("2.0") || trimmed === "gemini-pro") {
+      return "gemini-3.8-flash";
+    }
+    return trimmed;
+  };
+
   // Helper to run content generation with model fallback for restricted/free-tier keys
   const robustGenerateContent = async (ai: any, params: any, customModel?: string) => {
     const modelsToTry: string[] = [];
-    if (customModel && customModel.trim()) {
-      modelsToTry.push(customModel.trim());
-    }
-    const standardFallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    const normalizedModel = normalizeGeminiModel(customModel);
+    modelsToTry.push(normalizedModel);
+
+    const standardFallbackModels = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
     for (const m of standardFallbackModels) {
       if (!modelsToTry.includes(m)) {
         modelsToTry.push(m);
@@ -108,7 +121,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
     
     for (const modelName of modelsToTry) {
       // Add retry loop for each model
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           console.log(`[robustGenerateContent] Attempting generation with model: ${modelName} (Attempt ${attempt})`);
           const response = await ai.models.generateContent({
@@ -122,14 +135,12 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
           const errMsg = err?.message || String(err);
           console.warn(`[robustGenerateContent] Model ${modelName} failed (Attempt ${attempt}). Error:`, errMsg);
           
-          if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand")) {
-            console.log(`[robustGenerateContent] Model unavailable or high demand. Immediately falling back to next model...`);
-            break; // jump to the next model
-          } else if (errMsg.includes("too many requests") || errMsg.includes("429")) {
-             // Transient error or quota, wait before retrying the same model
-             console.log(`[robustGenerateContent] Rate limit detected. Retrying in ${attempt * 2} seconds...`);
-             await new Promise(res => setTimeout(res, attempt * 2000));
-             continue; // try again
+          const isRateLimit = errMsg.includes("too many requests") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota");
+          const isUnavailable = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand") || errMsg.includes("not found") || errMsg.includes("404");
+          
+          if (isRateLimit || isUnavailable) {
+            console.log(`[robustGenerateContent] Model ${modelName} encountered rate limit / unavailable. Switching immediately to next fallback model...`);
+            break; // jump to the next model immediately
           }
           break; // break the attempt loop, go to the next model
         }
@@ -151,7 +162,7 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
       if (!key || !ai) {
         return res.status(500).json({
-          error: "Hiện tại hệ thống chưa nhận được GEMINI_API_KEY. Vui lòng thiết lập khóa API trong UI hoặc trong Settings > Secrets."
+          error: "Dịch vụ AI đang tạm thời gián đoạn kết nối. Vui lòng thử lại sau ít giây."
         });
       }
 
@@ -240,7 +251,7 @@ Hãy phản hồi CHÍNH XÁC một cấu trúc JSON sau đây phù hợp nhất
 
       if (!key || !ai) {
         return res.status(500).json({
-          error: "Hiện tại hệ thống chưa nhận được GEMINI_API_KEY. Vui lòng thiết lập khóa API trong UI hoặc trong Settings > Secrets."
+          error: "Dịch vụ AI đang tạm thời gián đoạn kết nối. Vui lòng thử lại sau ít giây."
         });
       }
 
@@ -276,13 +287,12 @@ Hướng dẫn phối cảnh mỹ thuật:
       const { topic, model } = req.body;
       if (!topic) return res.status(400).json({ error: "Missing topic" });
 
-      const customApiKey = req.headers["x-gemini-key"] as string | undefined;
-      const effectiveApiKey = customApiKey || process.env.GEMINI_API_KEY;
-      if (!effectiveApiKey) {
-        return res.status(500).json({ error: "API key is missing" });
+      const { client: ai, key } = getAiClient(req);
+      if (!key || !ai) {
+        return res.status(500).json({
+          error: "Dịch vụ AI đang tạm thời gián đoạn kết nối. Vui lòng thử lại sau ít giây."
+        });
       }
-
-      const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
 
       const promptStr = `Dựa vào chủ đề sau, hãy tạo một nội dung bài học chi tiết và bao quát, thu thập kiến thức chuẩn xác từ các chương trình giảng dạy trong nước và quốc tế. Trình bày bài viết ở dạng văn bản thô (Plain text hoặc Markdown phân mục rõ ràng), dài khoảng 800 - 1500 từ.
 
@@ -319,7 +329,7 @@ Yêu cầu nội dung:
 
       if (!key || !ai) {
         return res.status(500).json({
-          error: "Hiện tại hệ thống chưa nhận được GEMINI_API_KEY. Vui lòng thiết lập khóa API trong UI hoặc trong Settings > Secrets."
+          error: "Dịch vụ AI đang tạm thời gián đoạn kết nối. Vui lòng thử lại sau ít giây."
         });
       }
 
@@ -527,7 +537,7 @@ Yêu cầu chi tiết cho từng trường thông tin trong JSON đầu ra:
       res.json(lessonJson);
     } catch (error: any) {
       console.error("Gemini Generation Error:", error);
-      res.status(500).json({ error: error.message || "Không thể khởi tạo nội dung khóa học thông qua AI. Vui lòng kiểm tra API Key hoặc nội dung bài giảng của bạn." });
+      res.status(500).json({ error: error.message || "Không thể khởi tạo nội dung khóa học thông qua AI. Vui lòng thử lại sau ít giây." });
     }
   });
 

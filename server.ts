@@ -294,22 +294,57 @@ Hướng dẫn phối cảnh mỹ thuật:
         });
       }
 
-      const promptStr = `Dựa vào chủ đề sau, hãy tạo một nội dung bài học chi tiết và bao quát, thu thập kiến thức chuẩn xác từ các chương trình giảng dạy trong nước và quốc tế. Trình bày bài viết ở dạng văn bản thô (Plain text hoặc Markdown phân mục rõ ràng), dài khoảng 800 - 1500 từ.
+      const promptStr = `Bạn là một học giả và chuyên gia sư phạm chuẩn mực tại Việt Nam. Dựa vào chủ đề học tập được yêu cầu: "${topic}", hãy tổng hợp từ cơ sở dữ liệu học thuật và biên soạn tài liệu bài giảng hoàn chỉnh, sâu sắc.
 
-Chủ đề: ${topic}
-
-Yêu cầu nội dung:
-- Bao gồm định lượng khái niệm, bối cảnh.
-- Cấu trúc các bước hoặc quy trình chuẩn (nếu có).
-- Có ví dụ/case-study chuyên sâu minh chứng.
-- Tóm tắt ý chính của từng phân đoạn rõ ràng.`;
+Yêu cầu trả về đúng định dạng JSON hợp lệ duy nhất:
+{
+  "title": "Tiêu đề bài học sư phạm lôi cuốn và chuẩn mực học thuật",
+  "subject": "Tên môn học / Chuyên ngành phù hợp (ví dụ: Vật lý, Kinh tế học, Khoa học Máy tính, Lịch sử...)",
+  "level": "Trình độ phù hợp (ví dụ: Học sinh THPT, Sinh viên Đại học, v.v.)",
+  "objectives": "3 mục tiêu học tập theo thang Bloom (Mục tiêu 1: Hiểu/Biết..., Mục tiêu 2: Vận dụng..., Mục tiêu 3: Phân tích/Đánh giá...)",
+  "content": "Toàn văn nội dung bài giảng khoa học (khoảng 600 - 1000 từ), sử dụng định dạng Markdown rõ ràng gồm: 1. Khái niệm & bản chất cốt lõi; 2. Các nguyên lý, công thức hoặc quy tắc chính; 3. Ví dụ thực tiễn hoặc tình huống tiêu biểu minh họa; 4. Bài học liên hệ thực tế & tổng kết."
+}`;
 
       const response = await robustGenerateContent(ai, {
         contents: promptStr,
+        config: {
+          temperature: 0.6,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              subject: { type: Type.STRING },
+              level: { type: Type.STRING },
+              objectives: { type: Type.STRING },
+              content: { type: Type.STRING }
+            },
+            required: ["title", "subject", "level", "objectives", "content"]
+          }
+        }
       }, model);
 
-      const generatedContent = response.text || "";
-      res.json({ content: generatedContent });
+      const rawText = response.text || "";
+      let parsed: any = {};
+      try {
+        parsed = parseRobustJson(rawText);
+      } catch {
+        parsed = { content: rawText };
+      }
+
+      const finalTitle = parsed.title || topic;
+      const finalSubject = parsed.subject || "Chuyên ngành";
+      const finalLevel = parsed.level || "Sinh viên Đại học";
+      const finalObjectives = parsed.objectives || "";
+      const finalContent = parsed.content || rawText;
+
+      res.json({
+        title: finalTitle,
+        subject: finalSubject,
+        level: finalLevel,
+        objectives: finalObjectives,
+        content: finalContent
+      });
     } catch (error: any) {
       console.error("Generate content Error:", error);
       res.status(500).json({ error: error.message || "Không thể sinh nội dung từ AI." });
